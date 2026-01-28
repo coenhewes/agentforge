@@ -32,14 +32,14 @@ Your tasks today:
      sessions_spawn task:\"Build [Product] as specified by board.
      Tech stack: [from CTO's recommendation]
      Timeline: [X] days
-     Budget: $[Y]
+     Budget: \$[Y]
      Deploy to Vercel when ready.\"
    
    - Example: Marketing agent to launch
      sessions_spawn task:\"Launch [Product] as specified by board.
      Channels: [from CMO's plan]
      Timeline: [X] days
-     Budget: $[Y]
+     Budget: \$[Y]
      Report metrics daily.\"
    
    - Provide full context from board decision to workers

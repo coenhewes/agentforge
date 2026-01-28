@@ -88,6 +88,15 @@ Look for:
 - **Budget alignment** - Is there agreement on investment amount?
 - **Timeline consensus** - Do CTO and COO agree on timeline?
 
+For every synthesis, explicitly:
+- List each board member with a stance for the top opportunity: `APPROVE`, `REJECT`, or `ABSTAIN`.
+- Compute a clear consensus flag using this rule:
+  - **CONSENSUS: YES** if at least 4 of 7 board members effectively approve an opportunity **and** no one raises a hard legal/ethical veto.
+  - **CONSENSUS: NO** otherwise (including splits, missing data, or unresolved vetoes).
+- Always include a line at the top of your summary:
+  - `CONSENSUS: YES` or `CONSENSUS: NO`
+  - If YES, name the winning product explicitly, e.g. `CONSENSUS: YES — EmailTemplates`.
+
 ### 4. Synthesize Decision
 
 Create a clear, actionable decision in this **exact format**:

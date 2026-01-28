@@ -243,6 +243,23 @@ stripe keys list
 
 Add to CEO's context: "Use Stripe secret key: sk_live_..."
 
+For AgentForge config (so agents can see and use the keys), set:
+
+```bash
+cd ~/agentforge
+
+# Live keys
+node moltbot.mjs config set env.vars.STRIPE_SECRET_KEY "sk_live_..."
+node moltbot.mjs config set env.vars.STRIPE_PUBLISHABLE_KEY "pk_live_..."
+
+# (Optional) Test keys
+node moltbot.mjs config set env.vars.STRIPE_TEST_SECRET_KEY "sk_test_..."
+node moltbot.mjs config set env.vars.STRIPE_TEST_PUBLISHABLE_KEY "pk_test_..."
+
+# Mode flag the agents can read
+node moltbot.mjs config set env.vars.STRIPE_MODE "test"   # or "live"
+```
+
 ### Vercel (Deployments)
 
 ```bash

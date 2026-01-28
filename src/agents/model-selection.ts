@@ -150,6 +150,27 @@ export function resolveConfiguredModelRef(params: {
     });
     if (resolved) return resolved.ref;
   }
+
+  // No per-agent or global default model configured. Try to infer a sensible
+  // default from the configured model providers before falling back to the
+  // hard-coded DEFAULT_PROVIDER/DEFAULT_MODEL pair.
+  //
+  // This lets setups that define `models.providers.<id>.models[0].id`
+  // (for example via `moltbot auth choice` or the VPS guide) drive the global
+  // default model without requiring every agent runner to configure its own
+  // model/auth separately.
+  const providers = params.cfg.models?.providers ?? {};
+  for (const [providerKey, providerConfigRaw] of Object.entries(providers)) {
+    const providerConfig = providerConfigRaw as { models?: Array<{ id?: string }> } | undefined;
+    const firstModelId = providerConfig?.models?.[0]?.id?.trim();
+    if (firstModelId) {
+      const provider = normalizeProviderId(providerKey);
+      const model = normalizeProviderModelId(provider, firstModelId);
+      return { provider, model };
+    }
+  }
+
+  // Fallback to the built-in defaults when nothing else is configured.
   return { provider: params.defaultProvider, model: params.defaultModel };
 }
 

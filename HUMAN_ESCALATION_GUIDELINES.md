@@ -45,7 +45,7 @@ request_human \
   --category access \
   --title "Need Stripe API keys for checkout" \
   --description "Building payment flow for email-template-saas. Need production Stripe keys to process real payments. Investment: INV-20260128-001. Budget: $50 remaining." \
-  --suggestedAction "Create keys at https://dashboard.stripe.com/apikeys then run: node moltbot.mjs config set integrations.stripe.secretKey=sk_live_..." \
+  --suggestedAction "Create keys at https://dashboard.stripe.com/apikeys then run: node moltbot.mjs config set env.vars.STRIPE_SECRET_KEY=\"sk_live_...\" and env.vars.STRIPE_PUBLISHABLE_KEY=\"pk_live_...\"" \
   --timeout "2h"
 ```
 

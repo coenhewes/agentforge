@@ -169,7 +169,7 @@ ls -la dist/
 ### 3d. Install Playwright Browsers
 
 ```bash
-npx playwright install chromium
+pnpx playwright install chromium
 ```
 
 **This installs Chromium for browser automation**
@@ -224,70 +224,171 @@ cat ~/.moltbot/agentforge-cron.txt
 
 ### 5a. Set API Key via Config File (Recommended for VPS)
 
-**Option 1: Claude (Anthropic) - Recommended**
+**⚠️ IMPORTANT:** The config file is at `~/.clawdbot/moltbot.json` (with `clawdbot`, not `moltbot`).
+
+The current config schema expects a **models catalog** with full provider entries (including `baseUrl` and a `models` array).  
+Use ONE of the following `jq` commands (depending on your provider) after running `init:agentforge`.
+
+#### Option 1: OpenAI (gpt-5-mini) – Recommended if you’re using OpenAI
 
 ```bash
-# Create/edit config
-cat >> ~/.moltbot/moltbot.json << 'EOF'
-{
-  "models": {
-    "providers": {
-      "anthropic": {
-        "apiKey": "sk-ant-YOUR_API_KEY_HERE"
-      }
-    },
-    "defaultProvider": "anthropic",
-    "defaultModel": "claude-sonnet-4.5"
+jq '.models = {
+  "mode": "merge",
+  "providers": {
+    "openai": {
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "sk-YOUR_OPENAI_KEY_HERE",
+      "api": "openai-responses",
+      "models": [
+        {
+          "id": "gpt-5-mini",
+          "name": "gpt-5-mini",
+          "api": "openai-responses",
+          "reasoning": false,
+          "input": ["text"],
+          "cost": {
+            "input": 0.0,
+            "output": 0.0,
+            "cacheRead": 0.0,
+            "cacheWrite": 0.0
+          },
+          "contextWindow": 200000,
+          "maxTokens": 16384
+        }
+      ]
+    }
   }
-}
-EOF
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
 ```
 
-**Replace `sk-ant-YOUR_API_KEY_HERE` with your actual Anthropic API key**
+**Replace `sk-YOUR_OPENAI_KEY_HERE` with your actual OpenAI API key.**
 
-**Option 2: OpenAI**
+#### Option 2: Claude (Anthropic)
 
 ```bash
-cat >> ~/.moltbot/moltbot.json << 'EOF'
-{
-  "models": {
-    "providers": {
-      "openai": {
-        "apiKey": "sk-YOUR_OPENAI_KEY_HERE"
-      }
-    },
-    "defaultProvider": "openai",
-    "defaultModel": "gpt-4o-mini"
+jq '.models = {
+  "mode": "merge",
+  "providers": {
+    "anthropic": {
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-YOUR_API_KEY_HERE",
+      "api": "anthropic-messages",
+      "models": [
+        {
+          "id": "claude-sonnet-4.5",
+          "name": "Claude Sonnet 4.5",
+          "api": "anthropic-messages",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "cost": {
+            "input": 0.0,
+            "output": 0.0,
+            "cacheRead": 0.0,
+            "cacheWrite": 0.0
+          },
+          "contextWindow": 200000,
+          "maxTokens": 16384
+        }
+      ]
+    }
   }
-}
-EOF
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
 ```
 
-**Option 3: Google Gemini**
+**Replace `sk-ant-YOUR_API_KEY_HERE` with your actual Anthropic API key.**
+
+#### Option 3: Google Gemini
 
 ```bash
-cat >> ~/.moltbot/moltbot.json << 'EOF'
-{
-  "models": {
-    "providers": {
-      "google": {
-        "apiKey": "YOUR_GOOGLE_AI_KEY_HERE"
-      }
-    },
-    "defaultProvider": "google",
-    "defaultModel": "gemini-2.0-flash-exp"
+jq '.models = {
+  "mode": "merge",
+  "providers": {
+    "google": {
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "apiKey": "YOUR_GOOGLE_AI_KEY_HERE",
+      "api": "google-generative-ai",
+      "models": [
+        {
+          "id": "gemini-2.0-flash-exp",
+          "name": "Gemini 2.0 Flash (experimental)",
+          "api": "google-generative-ai",
+          "reasoning": false,
+          "input": ["text", "image"],
+          "cost": {
+            "input": 0.0,
+            "output": 0.0,
+            "cacheRead": 0.0,
+            "cacheWrite": 0.0
+          },
+          "contextWindow": 200000,
+          "maxTokens": 16384
+        }
+      ]
+    }
   }
-}
-EOF
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
 ```
+
+**Replace `YOUR_GOOGLE_AI_KEY_HERE` with your actual Google AI Studio key.**
 
 ### 5b. Verify Config
 
 ```bash
-cat ~/.moltbot/moltbot.json | jq .
+sudo apt install -y jq
+```
+
+
+
+
+```bash
+cat ~/.clawdbot/moltbot.json | jq .
 ```
 
 **Should show your configuration with API key**
+
+**Troubleshooting: "JSON5: invalid character" error:**
+
+If you get a JSON5 parse error, you likely have a corrupted config file from appending JSON instead of merging. Fix it:
+
+```bash
+# 1. Delete corrupted configs
+rm -f ~/.clawdbot/moltbot.json ~/.moltbot/moltbot.json
+
+# 2. Re-run init to recreate base config
+node moltbot.mjs init:agentforge
+
+# 3. Then use jq to add your API key (for example, OpenAI gpt-5-mini):
+jq '.models = {
+  "mode": "merge",
+  "providers": {
+    "openai": {
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "sk-YOUR_ACTUAL_OPENAI_KEY_HERE",
+      "api": "openai-responses",
+      "models": [
+        {
+          "id": "gpt-5-mini",
+          "name": "gpt-5-mini",
+          "api": "openai-responses",
+          "reasoning": false,
+          "input": ["text"],
+          "cost": {
+            "input": 0.0,
+            "output": 0.0,
+            "cacheRead": 0.0,
+            "cacheWrite": 0.0
+          },
+          "contextWindow": 200000,
+          "maxTokens": 16384
+        }
+      ]
+    }
+  }
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+
+# 4. Verify
+cat ~/.clawdbot/moltbot.json | jq .
+```
 
 ---
 
@@ -315,6 +416,7 @@ cat ~/.moltbot/moltbot.json | jq .
 # Run the interactive setup command
 cd ~/agentforge
 node moltbot.mjs setup:github
+
 
 # Follow prompts:
 # - Username: agentforge-bot
@@ -559,6 +661,7 @@ crontab -e
 **Paste this into crontab:**
 
 ```cron
+
 # AgentForge Automation
 # Daily board meeting at 9am
 0 9 * * * cd /home/agentforge/agentforge && ./scripts/board-meeting.sh >> /tmp/agentforge-board.log 2>&1
@@ -896,7 +999,7 @@ echo ".moltbot/" >> .git/info/exclude
 
 **Store sensitive config separately:**
 ```bash
-# Keep API keys in ~/.moltbot/moltbot.json (not in repo)
+# Keep API keys in ~/.clawdbot/moltbot.json (not in repo)
 # This file is in .gitignore by default
 ```
 
@@ -951,7 +1054,7 @@ sudo systemctl restart moltbot-gateway
 
 **Config error:**
 ```bash
-cat ~/.moltbot/moltbot.json | jq .
+cat ~/.clawdbot/moltbot.json | jq .
 # Fix any JSON syntax errors
 ```
 
@@ -973,7 +1076,7 @@ sudo systemctl status moltbot-gateway
 ```bash
 # Test API key
 node moltbot.mjs agent --agent ceo --message "test"
-# If fails, check API key in ~/.moltbot/moltbot.json
+# If fails, check API key in ~/.clawdbot/moltbot.json
 ```
 
 **Check agent workspace:**
@@ -1163,7 +1266,7 @@ echo "Creating backup: $BACKUP_FILE"
 # Backup agent data, config, and vault
 tar -czf "$BACKUP_FILE" \
     ~/.moltbot/agents/ \
-    ~/.moltbot/moltbot.json \
+    ~/.clawdbot/moltbot.json \
     ~/agentforge/.obsidian-vault/ \
     ~/.moltbot/human-requests/ 2>/dev/null
 

@@ -32,12 +32,28 @@ export async function setupVercelCommand(runtime: RuntimeEnv = defaultRuntime): 
   if (!hasVercel) {
     runtime.log("  ⚠️  Vercel CLI not found");
     runtime.log("\n📥 Installing Vercel CLI globally...");
-
     try {
       await execAsync("npm install -g vercel");
       runtime.log("  ✓ Vercel CLI installed");
     } catch (error) {
-      throw new Error(`Failed to install Vercel CLI: ${String(error)}`);
+      const message = String(error);
+
+      // Common case on VPS: global npm installs require sudo/root
+      if (message.includes("EACCES") || message.toLowerCase().includes("permission denied")) {
+        runtime.log("  ⚠️  Failed to install Vercel CLI due to permissions (EACCES).");
+        runtime.log("     Global npm installs usually require sudo on this system.");
+        runtime.log("     To install manually, run on your VPS shell:");
+        runtime.log("       sudo npm install -g vercel");
+        runtime.log("");
+        runtime.log(
+          "     Continuing setup without a globally installed Vercel CLI; API checks will still work,",
+        );
+        runtime.log(
+          "     and you can run the command above later to enable `vercel` from the CLI.\n",
+        );
+      } else {
+        throw new Error(`Failed to install Vercel CLI: ${message}`);
+      }
     }
   } else {
     runtime.log("  ✓ Vercel CLI already installed");

@@ -51,7 +51,7 @@ The Market Analyst will present opportunities. Your job:
 5. Assess runway impact
 
 For each opportunity, state:
-- Recommended budget: $X
+- Recommended budget: \$X
 - Expected ROI: Xx in Y days
 - Kill if: [specific threshold]
 - Risk level: Low/Medium/High
@@ -72,7 +72,7 @@ For each opportunity, state:
 - Build complexity: Simple/Medium/Complex
 - Timeline: X days to MVP
 - Tech stack: [specific choices]
-- Infrastructure: $X/month
+- Infrastructure: \$X/month
 - Risks: [list]
 
 Prefer boring, proven tech. Present your analysis clearly."
@@ -90,7 +90,7 @@ The Market Analyst will present opportunities. Your job:
 For each opportunity, state:
 - Target customer: [who]
 - Channels: [where to find them]
-- CAC estimate: $X
+- CAC estimate: \$X
 - Launch plan: [specific steps]
 - Timeline: X days
 
@@ -128,7 +128,7 @@ The Market Analyst will present opportunities. Your job:
 For each opportunity, state:
 - Key risks: [list]
 - Kill thresholds: [specific, measurable criteria]
-- Max downside: $X (acceptable?)
+- Max downside: \$X (acceptable?)
 - Mitigation: [actions]
 - Recommendation: Approve/Reject/Conditional
 
@@ -149,24 +149,20 @@ For your ideas, provide:
 - Why now: [timing/trend]
 - Potential: [upside]
 - Risk: [downside]
-- Budget: $X
+- Budget: \$X
 
 Think 10x, not 2x. But ground ideas in reality. Present clearly."
 
-# Send prompts to all board members in parallel
-echo "[$(date)] Sending prompts to all board members..." >&2
+# Send prompts to all board members SEQUENTIALLY
+echo "[$(date)] Running board members sequentially..." >&2
 for member in "${BOARD_MEMBERS[@]}"; do
-  (
-    echo "  Triggering: $member" >&2
-    node moltbot.mjs agent --agent "$member" --message "${PROMPTS[$member]}" > /dev/null 2>&1 || echo "  Warning: $member failed" >&2
-  ) &
+  echo "  Triggering: $member" >&2
+  node moltbot.mjs agent --agent "$member" --message "${PROMPTS[$member]}" > /dev/null 2>&1 \
+    || echo "  Warning: $member failed" >&2
 done
 
-# Wait for all board members to complete
-echo "[$(date)] Waiting for board members to respond..." >&2
-wait
-
-# Give agents a moment to finish writing
+# Give agents a moment to finish writing their updates
+echo "[$(date)] Giving agents a moment to finish writing..." >&2
 sleep 5
 
 # Now trigger coordinator to synthesize

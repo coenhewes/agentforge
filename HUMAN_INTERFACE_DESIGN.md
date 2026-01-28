@@ -66,7 +66,8 @@ request_human({
     project: "email-template-saas",
     investmentId: "INV-20260128-001"
   },
-  suggestedAction: "Provide keys via: node moltbot.mjs config set integrations.stripe.secretKey=sk_live_...",
+  suggestedAction:
+    "Provide keys via: node moltbot.mjs config set env.vars.STRIPE_SECRET_KEY=\"sk_live_...\" and env.vars.STRIPE_PUBLISHABLE_KEY=\"pk_live_...\"",
   timeout: "24h"  // Auto-escalate if no response
 })
 ```
