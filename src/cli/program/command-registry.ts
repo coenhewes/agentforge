@@ -12,6 +12,8 @@ import { registerMemoryCli, runMemoryStatus } from "../memory-cli.js";
 import { registerAgentCommands } from "./register.agent.js";
 import { registerConfigureCommand } from "./register.configure.js";
 import { registerInitAgentforgeCommand } from "./register.init-agentforge.js";
+import { registerSetupGithubCommand } from "./register.setup-github.js";
+import { registerSetupVercelCommand } from "./register.setup-vercel.js";
 import { registerMaintenanceCommands } from "./register.maintenance.js";
 import { registerMessageCommands } from "./register.message.js";
 import { registerOnboardCommand } from "./register.onboard.js";
@@ -112,6 +114,14 @@ export const commandRegistry: CommandRegistration[] = [
   {
     id: "init-agentforge",
     register: ({ program }) => registerInitAgentforgeCommand(program),
+  },
+  {
+    id: "setup-github",
+    register: ({ program }) => registerSetupGithubCommand(program),
+  },
+  {
+    id: "setup-vercel",
+    register: ({ program }) => registerSetupVercelCommand(program),
   },
   {
     id: "onboard",

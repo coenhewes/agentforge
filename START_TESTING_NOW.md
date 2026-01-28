@@ -69,6 +69,36 @@ node moltbot.mjs auth choice
 
 **Follow the prompts to enter your API key**
 
+### 2c. Configure GitHub Access (CRITICAL!)
+
+```bash
+node moltbot.mjs setup:github
+```
+
+**You'll need:**
+- GitHub account (create `agentforge-bot` or use existing)
+- Personal Access Token with `repo`, `workflow`, `user:email`, `delete_repo` scopes
+
+**Follow the interactive prompts**
+
+**Why:** Agents need GitHub to build products, manage code, create repos
+
+### 2d. Configure Vercel Deployment (CRITICAL!)
+
+```bash
+node moltbot.mjs setup:vercel
+```
+
+**You'll need:**
+- Vercel account (free tier is fine)
+- Vercel auth token (create at https://vercel.com/account/tokens)
+
+**Follow the interactive prompts**
+
+**Why:** Agents need Vercel to deploy products and make them publicly accessible
+
+**⚠️ IMPORTANT:** Skip steps 2c-2d and agents won't be able to build or launch anything!
+
 ---
 
 ## Step 3: Start Gateway (30 seconds)

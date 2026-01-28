@@ -32,14 +32,17 @@ export async function initAgentforgeCommand(runtime: RuntimeEnv = defaultRuntime
   runtime.log("\n✅ AgentForge initialized successfully!\n");
   runtime.log("📋 Next steps:");
   runtime.log("  1. Set your AI provider: node moltbot.mjs auth choice");
-  runtime.log("  2. Start gateway: node moltbot.mjs gateway run --port 18789");
-  runtime.log("  3. Trigger first board meeting: ./scripts/board-meeting.sh");
-  runtime.log("  4. Monitor coordinator: node moltbot.mjs tui --session agent:coordinator:main");
-  runtime.log("  5. Trigger CEO execution: ./scripts/ceo-implement.sh");
-  runtime.log("  6. Install cron for automation (see ~/.moltbot/agentforge-cron.txt)");
+  runtime.log("  2. 🔑 Configure GitHub access: node moltbot.mjs setup:github (CRITICAL!)");
+  runtime.log("  3. 🚀 Configure Vercel deployment: node moltbot.mjs setup:vercel (CRITICAL!)");
+  runtime.log("  4. Start gateway: node moltbot.mjs gateway run --port 18789");
+  runtime.log("  5. Trigger first board meeting: ./scripts/board-meeting.sh");
+  runtime.log("  6. Monitor coordinator: node moltbot.mjs tui --session agent:coordinator:main");
+  runtime.log("  7. Trigger CEO execution: ./scripts/ceo-implement.sh");
+  runtime.log("  8. Install cron for automation (see ~/.moltbot/agentforge-cron.txt)");
   runtime.log("\n📚 All agents have MEMORY.md files and will learn/improve over time");
   runtime.log("🤝 Agents can request human help via request_human tool");
   runtime.log("👁️  Monitor requests: node moltbot.mjs tui --session agent:human:main");
+  runtime.log("🔑 GitHub + Vercel required for agents to build & deploy real products!");
   runtime.log("\n💡 Full guide: README_AGENTFORGE.md or docs/start/ceo-quickstart.md\n");
 }
 

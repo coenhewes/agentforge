@@ -153,6 +153,27 @@ pnpm --version
 # 3. Git repository
 git status
 # Should show: On branch main
+
+# 4. Git configured for agent (CRITICAL!)
+git config --global user.name
+# Should show: AgentForge Bot (or your agent name)
+
+# 5. Vercel CLI installed (CRITICAL!)
+vercel --version
+# Should show: Vercel CLI version
+
+# 6. Environment variables set (CRITICAL!)
+echo $GITHUB_TOKEN
+# Should show: ghp_xxxx...
+
+echo $VERCEL_TOKEN
+# Should show: vercel token
+```
+
+**If git, Vercel, or tokens not configured, run:**
+```bash
+node moltbot.mjs setup:github
+node moltbot.mjs setup:vercel
 ```
 
 ### Installation Steps
@@ -582,6 +603,10 @@ node moltbot.mjs agent --agent cfo --message "What is the current treasury balan
 - [ ] All agent workspaces exist (~/.moltbot/agents/)
 - [ ] All MEMORY.md files present
 - [ ] All scripts executable
+- [ ] **GitHub access configured** (`git config --global user.name` shows agent)
+- [ ] **Vercel CLI installed** (`vercel --version` works)
+- [ ] **GITHUB_TOKEN set** (`echo $GITHUB_TOKEN` shows token)
+- [ ] **VERCEL_TOKEN set** (`echo $VERCEL_TOKEN` shows token)
 
 ### Core Functionality Tests
 

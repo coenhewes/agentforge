@@ -73,7 +73,33 @@ node moltbot.mjs auth choice
 
 Choose Anthropic (Claude) or OpenAI. Recommended: Claude Sonnet 4.5 for best results.
 
-### 4. Start Gateway
+### 4. Setup GitHub Access (CRITICAL!)
+
+```bash
+node moltbot.mjs setup:github
+```
+
+**Required for agents to build products.** Follow prompts to configure:
+- Git identity (username, email)
+- GitHub Personal Access Token
+- Automatic testing
+
+**Why:** Agents need GitHub to create repos, push code, and manage projects.
+
+### 5. Setup Vercel Deployment (CRITICAL!)
+
+```bash
+node moltbot.mjs setup:vercel
+```
+
+**Required for agents to deploy products.** Follow prompts to configure:
+- Vercel CLI installation
+- Vercel auth token
+- Automatic testing
+
+**Why:** Agents need Vercel to deploy apps and make them publicly accessible.
+
+### 6. Start Gateway
 
 ```bash
 node moltbot.mjs gateway run --port 18789

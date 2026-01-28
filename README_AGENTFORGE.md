@@ -11,13 +11,33 @@ Built on [Moltbot](https://molt.bot) with enhancements for strategic agents, per
 AgentForge is a **Board of Directors + CEO system** powered by AI agents that:
 - 🔍 **Researches real markets** (via browser automation)
 - 💡 **Selects viable ventures** (via Board consensus)
-- 🚀 **Builds products** (via developer agents)
+- 🚀 **Builds products** (via developer agents + GitHub)
+- 🌐 **Deploys to production** (via Vercel)
 - 📈 **Launches to market** (via marketing agents)
 - 💰 **Generates revenue** (via Stripe integration)
 - 📊 **Learns continuously** (via persistent memory)
 - 🔄 **Improves over time** (via prediction tracking)
 
 **All autonomously.** No human intervention required (but available when needed).
+
+### Full Moltbot Capabilities
+
+**Every agent has access to ALL Moltbot tools:**
+- ✅ **Browser automation** - Navigate web, scrape data, post to communities
+- ✅ **Image generation** - Create marketing graphics, mockups, product assets
+- ✅ **Messaging platforms** - Telegram, Slack, Discord, WhatsApp
+- ✅ **Memory system** - Semantic search across all history
+- ✅ **Bash/system** - Git, npm, deployment, file operations
+- ✅ **Canvas/A2UI** - Interactive UIs and prototypes
+- ✅ **Web tools** - Search and fetch web content
+- ✅ **Sessions** - Agent-to-agent communication
+
+**Plus integrations:**
+- ✅ **GitHub API** - Create repos, push code, manage projects
+- ✅ **Vercel CLI** - Deploy apps instantly
+- ✅ **Any API** - Via bash + curl
+
+**See `AGENTFORGE_CAPABILITIES.md` for complete details and examples.**
 
 ---
 
@@ -132,9 +152,19 @@ node moltbot.mjs init:agentforge
 node moltbot.mjs auth choice
 # Choose Claude Sonnet 4.5 (recommended) or OpenAI
 
-# 5. Start gateway
+# 5. Setup GitHub access (CRITICAL for building products)
+node moltbot.mjs setup:github
+# Follow prompts to configure git + GitHub API
+
+# 6. Setup Vercel deployment (CRITICAL for launching products)
+node moltbot.mjs setup:vercel
+# Follow prompts to configure Vercel CLI
+
+# 7. Start gateway
 node moltbot.mjs gateway run --port 18789
 ```
+
+**⚠️ Steps 5-6 are CRITICAL:** Without GitHub + Vercel, agents can't build or deploy products!
 
 ### First Board Meeting
 

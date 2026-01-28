@@ -15,6 +15,28 @@ echo "[$(date)] Starting Obsidian vault sync..." >&2
 # Create vault if it doesn't exist
 mkdir -p "$VAULT_DIR"
 
+# Create all required vault directories
+echo "Creating vault directories..." >&2
+mkdir -p "$VAULT_DIR/00-Dashboard"
+mkdir -p "$VAULT_DIR/01-Board-Meetings"
+mkdir -p "$VAULT_DIR/02-Ventures/Active"
+mkdir -p "$VAULT_DIR/02-Ventures/Completed"
+mkdir -p "$VAULT_DIR/02-Ventures/Killed"
+mkdir -p "$VAULT_DIR/03-Agents/CEO"
+mkdir -p "$VAULT_DIR/03-Agents/Coordinator"
+mkdir -p "$VAULT_DIR/03-Agents/Market-Analyst"
+mkdir -p "$VAULT_DIR/03-Agents/CFO"
+mkdir -p "$VAULT_DIR/03-Agents/CTO"
+mkdir -p "$VAULT_DIR/03-Agents/CMO"
+mkdir -p "$VAULT_DIR/03-Agents/COO"
+mkdir -p "$VAULT_DIR/03-Agents/Risk-Manager"
+mkdir -p "$VAULT_DIR/03-Agents/Innovation-Lead"
+mkdir -p "$VAULT_DIR/04-Intelligence"
+mkdir -p "$VAULT_DIR/05-Learnings"
+mkdir -p "$VAULT_DIR/06-Human-Requests/Active"
+mkdir -p "$VAULT_DIR/06-Human-Requests/Resolved"
+mkdir -p "$VAULT_DIR/07-Meta"
+
 # Function to convert agent MEMORY.md to Obsidian format
 sync_agent_memory() {
   local agent=$1
@@ -39,13 +61,13 @@ sync_agent_memory() {
 echo "Syncing agent memories..." >&2
 sync_agent_memory "ceo" "CEO"
 sync_agent_memory "coordinator" "Coordinator"
-sync_agent_memory "analyst" "Market-Analyst"
-sync_agent_memory "cfo" "CFO"
-sync_agent_memory "cto" "CTO"
-sync_agent_memory "cmo" "CMO"
-sync_agent_memory "coo" "COO"
-sync_agent_memory "risk" "Risk-Manager"
-sync_agent_memory "innovation" "Innovation-Lead"
+sync_agent_memory "board/analyst" "Market-Analyst"
+sync_agent_memory "board/cfo" "CFO"
+sync_agent_memory "board/cto" "CTO"
+sync_agent_memory "board/cmo" "CMO"
+sync_agent_memory "board/coo" "COO"
+sync_agent_memory "board/risk" "Risk-Manager"
+sync_agent_memory "board/innovation" "Innovation-Lead"
 
 # Sync human requests
 echo "Syncing human requests..." >&2
