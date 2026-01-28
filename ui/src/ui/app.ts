@@ -212,6 +212,13 @@ export class MoltbotApp extends LitElement {
   @state() cronRuns: CronRunLogEntry[] = [];
   @state() cronBusy = false;
 
+  @state() usageLoading = false;
+  @state() usageCostSummary: unknown | null = null;
+  @state() usageBudgetStatus: unknown | null = null;
+  @state() usageError: string | null = null;
+  @state() usageBudgetSaving = false;
+  @state() usageBudgetSaveError: string | null = null;
+
   @state() skillsLoading = false;
   @state() skillsReport: SkillStatusReport | null = null;
   @state() skillsError: string | null = null;

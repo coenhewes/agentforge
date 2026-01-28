@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  BudgetSchema,
   HeartbeatSchema,
   MemorySearchSchema,
   SandboxBrowserSchema,
@@ -135,6 +136,7 @@ export const AgentDefaultsSchema = z
       .optional(),
     heartbeat: HeartbeatSchema,
     maxConcurrent: z.number().int().positive().optional(),
+    budget: BudgetSchema,
     subagents: z
       .object({
         maxConcurrent: z.number().int().positive().optional(),

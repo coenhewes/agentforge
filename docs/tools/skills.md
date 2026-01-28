@@ -260,6 +260,25 @@ copy). Workspace skills are user-owned and override both on name conflicts.
 
 See [Skills config](/tools/skills-config) for the full configuration schema.
 
+## Skills for Autonomous Agents
+
+These bundled skills are particularly useful for autonomous agent operations:
+
+| Skill | Description |
+|-------|-------------|
+| `vercel` | Deploy web apps via Vercel CLI |
+| `github` | GitHub CLI for repos, PRs, issues |
+| `himalaya` | Email via IMAP/SMTP |
+| `browser-automation` | Web automation patterns (forms, scraping, social) |
+| `sheets-finance` | Financial tracking via Google Sheets |
+| `stripe` | Payment integration reference |
+| `bird` | Twitter/X management |
+| `1password` | Secure credential access |
+| `dev-orchestrator` | Coordinate coding tools (Claude Code, Codex, etc.) |
+| `business-strategy` | Strategic frameworks for business building |
+
+See [Autonomous Agents](/concepts/autonomous-agents) for patterns on using these skills together.
+
 ## Looking for more skills?
 
 Browse https://clawdhub.com.

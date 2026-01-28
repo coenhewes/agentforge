@@ -127,6 +127,18 @@ export type DiagnosticHeartbeatEvent = DiagnosticBaseEvent & {
   queued: number;
 };
 
+export type DiagnosticBudgetAlertEvent = DiagnosticBaseEvent & {
+  type: "budget.alert";
+  agentId: string;
+  dailySpent?: number;
+  dailyLimit?: number;
+  monthlySpent?: number;
+  monthlyLimit?: number;
+  isOverBudget: boolean;
+  blocked: boolean;
+  message: string;
+};
+
 export type DiagnosticEventPayload =
   | DiagnosticUsageEvent
   | DiagnosticWebhookReceivedEvent
@@ -139,7 +151,8 @@ export type DiagnosticEventPayload =
   | DiagnosticLaneEnqueueEvent
   | DiagnosticLaneDequeueEvent
   | DiagnosticRunAttemptEvent
-  | DiagnosticHeartbeatEvent;
+  | DiagnosticHeartbeatEvent
+  | DiagnosticBudgetAlertEvent;
 
 export type DiagnosticEventInput = DiagnosticEventPayload extends infer Event
   ? Event extends DiagnosticEventPayload

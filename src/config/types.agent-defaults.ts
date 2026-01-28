@@ -4,6 +4,7 @@ import type {
   HumanDelayConfig,
   TypingMode,
 } from "./types.base.js";
+import type { BudgetConfig } from "./types.budget.js";
 import type { ChannelId } from "../channels/plugins/types.js";
 import type {
   SandboxBrowserSettings,
@@ -196,6 +197,8 @@ export type AgentDefaultsConfig = {
   };
   /** Max concurrent agent runs across all conversations. Default: 1 (sequential). */
   maxConcurrent?: number;
+  /** Budget limits for controlling agent spending. */
+  budget?: BudgetConfig;
   /** Sub-agent defaults (spawned via sessions_spawn). */
   subagents?: {
     /** Max concurrent sub-agent runs (global lane: "subagent"). Default: 1. */

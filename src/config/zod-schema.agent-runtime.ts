@@ -9,6 +9,16 @@ import {
   ToolsMediaSchema,
 } from "./zod-schema.core.js";
 
+export const BudgetSchema = z
+  .object({
+    daily: z.number().nonnegative().optional(),
+    monthly: z.number().nonnegative().optional(),
+    alertAt: z.number().min(0).max(1).optional(),
+    action: z.union([z.literal("warn"), z.literal("block")]).optional(),
+  })
+  .strict()
+  .optional();
+
 export const HeartbeatSchema = z
   .object({
     every: z.string().optional(),
@@ -443,6 +453,7 @@ export const AgentEntrySchema = z
       })
       .strict()
       .optional(),
+    budget: BudgetSchema,
     sandbox: AgentSandboxSchema,
     tools: AgentToolsSchema,
   })

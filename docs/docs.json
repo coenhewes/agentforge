@@ -310,6 +310,14 @@
       "destination": "/concepts/architecture"
     },
     {
+      "source": "/autonomous-agents",
+      "destination": "/concepts/autonomous-agents"
+    },
+    {
+      "source": "/autonomous-agents/",
+      "destination": "/concepts/autonomous-agents"
+    },
+    {
       "source": "/audio",
       "destination": "/nodes/audio"
     },
@@ -821,6 +829,7 @@
         "pages": [
           "index",
           "start/getting-started",
+          "start/ceo-quickstart",
           "start/wizard",
           "start/setup",
           "start/pairing",
@@ -910,6 +919,7 @@
           "concepts/agent-workspace",
           "concepts/memory",
           "concepts/multi-agent",
+          "concepts/autonomous-agents",
           "concepts/compaction",
           "concepts/session",
           "concepts/session-pruning",

@@ -121,6 +121,12 @@ export type AppViewState = {
   cronRunsJobId: string | null;
   cronRuns: CronRunLogEntry[];
   cronBusy: boolean;
+  usageLoading: boolean;
+  usageCostSummary: unknown | null;
+  usageBudgetStatus: unknown | null;
+  usageError: string | null;
+  usageBudgetSaving: boolean;
+  usageBudgetSaveError: string | null;
   skillsLoading: boolean;
   skillsReport: SkillStatusReport | null;
   skillsError: string | null;

@@ -1,5 +1,6 @@
 import type { AgentDefaultsConfig } from "./types.agent-defaults.js";
 import type { HumanDelayConfig, IdentityConfig } from "./types.base.js";
+import type { BudgetConfig } from "./types.budget.js";
 import type { GroupChatConfig } from "./types.messages.js";
 import type {
   SandboxBrowserSettings,
@@ -37,6 +38,8 @@ export type AgentConfig = {
     /** Per-agent default model for spawned sub-agents (string or {primary,fallbacks}). */
     model?: string | { primary?: string; fallbacks?: string[] };
   };
+  /** Per-agent budget overrides. */
+  budget?: BudgetConfig;
   sandbox?: {
     mode?: "off" | "non-main" | "all";
     /** Agent workspace access inside the sandbox. */

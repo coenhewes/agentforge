@@ -41,6 +41,7 @@ import { renderLogs } from "./views/logs";
 import { renderNodes } from "./views/nodes";
 import { renderOverview } from "./views/overview";
 import { renderSessions } from "./views/sessions";
+import { renderUsage } from "./views/usage";
 import { renderExecApprovalPrompt } from "./views/exec-approval";
 import {
   approveDevicePairing,
@@ -81,6 +82,7 @@ import {
 import { loadCronRuns, toggleCronJob, runCronJob, removeCronJob, addCronJob } from "./controllers/cron";
 import { loadDebug, callDebugMethod } from "./controllers/debug";
 import { loadLogs } from "./controllers/logs";
+import { loadUsageData, saveBudgetSettings } from "./controllers/usage";
 
 const AVATAR_DATA_RE = /^data:/i;
 const AVATAR_HTTP_RE = /^https?:\/\//i;
@@ -326,6 +328,19 @@ export function renderApp(state: AppViewState) {
               onRun: (job) => runCronJob(state, job),
               onRemove: (job) => removeCronJob(state, job),
               onLoadRuns: (jobId) => loadCronRuns(state, jobId),
+            })
+          : nothing}
+
+        ${state.tab === "usage"
+          ? renderUsage({
+              costSummary: state.usageCostSummary,
+              budgetStatus: state.usageBudgetStatus,
+              usageLoading: state.usageLoading,
+              usageError: state.usageError,
+              budgetSaving: state.usageBudgetSaving,
+              budgetSaveError: state.usageBudgetSaveError,
+              onRefresh: () => loadUsageData(state),
+              onSaveBudget: (params) => saveBudgetSettings(state, params),
             })
           : nothing}
 

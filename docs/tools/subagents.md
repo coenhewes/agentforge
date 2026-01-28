@@ -24,7 +24,10 @@ Primary goals:
 - Parallelize “research / long task / slow tool” work without blocking the main run.
 - Keep sub-agents isolated by default (session separation + optional sandboxing).
 - Keep the tool surface hard to misuse: sub-agents do **not** get session tools by default.
-- Avoid nested fan-out: sub-agents cannot spawn sub-agents.
+Hierarchical spawning:
+- By default, sub-agents cannot spawn their own sub-agents.
+- To enable hierarchical agent structures (e.g., CEO to PM to Developer), set `agents.list[].subagents.allowAgents: ["*"]` for the parent agent.
+- See [Autonomous Agents](/concepts/autonomous-agents) for patterns on building agent hierarchies.
 
 Cost note: each sub-agent has its **own** context and token usage. For heavy or repetitive
 tasks, set a cheaper model for sub-agents and keep your main agent on a higher-quality model.

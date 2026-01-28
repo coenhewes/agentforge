@@ -2,6 +2,7 @@ import { ErrorCodes, errorShape } from "./protocol/index.js";
 import { agentHandlers } from "./server-methods/agent.js";
 import { agentsHandlers } from "./server-methods/agents.js";
 import { browserHandlers } from "./server-methods/browser.js";
+import { budgetHandlers } from "./server-methods/budget.js";
 import { channelsHandlers } from "./server-methods/channels.js";
 import { chatHandlers } from "./server-methods/chat.js";
 import { configHandlers } from "./server-methods/config.js";
@@ -55,6 +56,7 @@ const READ_METHODS = new Set([
   "status",
   "usage.status",
   "usage.cost",
+  "budget.status",
   "tts.status",
   "tts.providers",
   "models.list",
@@ -131,6 +133,7 @@ function authorizeGatewayMethod(method: string, client: GatewayRequestOptions["c
     method === "channels.logout" ||
     method === "skills.install" ||
     method === "skills.update" ||
+    method === "budget.set" ||
     method === "cron.add" ||
     method === "cron.update" ||
     method === "cron.remove" ||
@@ -150,6 +153,7 @@ export const coreGatewayHandlers: GatewayRequestHandlers = {
   ...logsHandlers,
   ...voicewakeHandlers,
   ...healthHandlers,
+  ...budgetHandlers,
   ...channelsHandlers,
   ...chatHandlers,
   ...cronHandlers,

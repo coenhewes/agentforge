@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { resolveAgentIdFromSessionKey as resolveAgentIdForSessionKey } from "../../agents/agent-scope.js";
 import { lookupContextTokens } from "../../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS } from "../../agents/defaults.js";
 import { resolveModelAuthMode } from "../../agents/model-auth.js";
@@ -15,6 +16,7 @@ import {
   updateSessionStoreEntry,
 } from "../../config/sessions.js";
 import type { TypingMode } from "../../config/types.js";
+import { checkBudget } from "../../infra/budget-enforcement.js";
 import { defaultRuntime } from "../../runtime.js";
 import { estimateUsageCost, resolveModelCostConfig } from "../../utils/usage-format.js";
 import type { OriginatingChannelType, TemplateContext } from "../templating.js";
@@ -197,6 +199,52 @@ export async function runReplyAgent(params: {
   }
 
   await typingSignals.signalRunStart();
+
+  // Budget enforcement check: verify agent is within spending limits
+  const agentId = sessionKey ? resolveAgentIdForSessionKey(sessionKey) : undefined;
+  if (agentId) {
+    const budgetCheck = await checkBudget({ agentId, config: cfg });
+    if (!budgetCheck.allowed) {
+      defaultRuntime.error(`Budget enforcement blocked agent run: ${budgetCheck.reason}`);
+      // Emit diagnostic event for budget block
+      if (isDiagnosticsEnabled(cfg)) {
+        emitDiagnosticEvent({
+          type: "budget.alert",
+          agentId,
+          dailySpent: budgetCheck.dailySpent,
+          dailyLimit: budgetCheck.dailyLimit,
+          monthlySpent: budgetCheck.monthlySpent,
+          monthlyLimit: budgetCheck.monthlyLimit,
+          isOverBudget: true,
+          blocked: true,
+          message: budgetCheck.reason ?? "Budget limit exceeded",
+        });
+      }
+      typing.cleanup();
+      return {
+        text: `⚠️ Budget limit reached: ${budgetCheck.reason}. Please contact an administrator to increase the budget.`,
+      };
+    }
+    if (budgetCheck.shouldAlert && budgetCheck.alertMessage) {
+      defaultRuntime.error(`[budget-alert] ${budgetCheck.alertMessage}`);
+      // Emit diagnostic event for budget warning
+      if (isDiagnosticsEnabled(cfg)) {
+        emitDiagnosticEvent({
+          type: "budget.alert",
+          agentId,
+          dailySpent: budgetCheck.dailySpent,
+          dailyLimit: budgetCheck.dailyLimit,
+          monthlySpent: budgetCheck.monthlySpent,
+          monthlyLimit: budgetCheck.monthlyLimit,
+          isOverBudget:
+            budgetCheck.dailySpent >= budgetCheck.dailyLimit ||
+            budgetCheck.monthlySpent >= budgetCheck.monthlyLimit,
+          blocked: false,
+          message: budgetCheck.alertMessage,
+        });
+      }
+    }
+  }
 
   activeSessionEntry = await runMemoryFlushIfNeeded({
     cfg,
