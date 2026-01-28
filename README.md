@@ -1,11 +1,11 @@
-# 🦞 Moltbot — Personal AI Assistant
+# 🏢 AgentForge — Autonomous AI Business Builder
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/moltbot/moltbot/main/docs/whatsapp-clawd.jpg" alt="Clawdbot" width="400">
 </p>
 
 <p align="center">
-  <strong>EXFOLIATE! EXFOLIATE!</strong>
+  <strong>AUTONOMOUS. RELENTLESS. PROFITABLE.</strong>
 </p>
 
 <p align="center">
@@ -16,10 +16,49 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
-**Moltbot** is a *personal AI assistant* you run on your own devices.
-It answers you on the channels you already use (WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, Microsoft Teams, WebChat), plus extension channels like BlueBubbles, Matrix, Zalo, and Zalo Personal. It can speak and listen on macOS/iOS/Android, and can render a live Canvas you control. The Gateway is just the control plane — the product is the assistant.
+## What is AgentForge?
 
-If you want a personal, single-user assistant that feels local, fast, and always-on, this is it.
+**AgentForge** is a fully autonomous AI system that builds businesses from scratch with minimal human intervention. Built on **Moltbot**, it features:
+
+- **Board of Directors** (7 AI executives) that analyze opportunities from different perspectives
+- **Board Coordinator** that synthesizes all board input into clear decisions
+- **CEO Agent** that implements board decisions by spawning developer, marketing, and operations agents
+- **Worker Agents** that build products, launch marketing campaigns, and manage operations
+- **Autonomous Loop** that runs 24/7 via cron, continuously finding opportunities and building businesses
+
+### How It Works
+
+1. **9am Daily:** Board analysis (parallel)
+   - Each of 7 board members receives role-specific prompt
+   - Market Analyst browses web (Reddit, Product Hunt, Twitter) for real opportunities
+   - CFO analyzes finances, CTO evaluates feasibility, CMO plans marketing, etc.
+   - All respond independently in their own sessions
+
+2. **9:15am Daily:** Coordinator synthesizes
+   - Coordinator agent reads all 7 board member responses
+   - Extracts key points from each perspective
+   - Identifies consensus on best opportunity
+   - Synthesizes into clear "BOARD DECISION" with all details
+
+3. **10am Daily:** CEO executes
+   - CEO reads coordinator's synthesized decision
+   - Spawns developer agents to build the product
+   - Spawns marketing agents to launch
+   - Tracks spend and revenue in real-time
+   - Kills bad investments per thresholds (no sunk cost)
+
+4. **Continuous:** Workers execute
+   - Build MVPs and deploy to Vercel
+   - Set up Stripe payments
+   - Launch on Product Hunt, Reddit, Twitter
+   - Report results back to CEO
+
+**Human intervention:** Optional oversight only. The system runs itself.
+
+---
+
+**Moltbot** is the underlying *personal AI assistant* platform.
+It runs on your own devices and connects to channels (WhatsApp, Telegram, Slack, Discord, Google Chat, Signal, iMessage, Microsoft Teams, WebChat), plus extensions (BlueBubbles, Matrix, Zalo). It can speak and listen on macOS/iOS/Android, and render a live Canvas you control. The Gateway is just the control plane — the product is the assistant.
 
 [Website](https://molt.bot) · [Docs](https://docs.molt.bot) · [Getting Started](https://docs.molt.bot/start/getting-started) · [Updating](https://docs.molt.bot/install/updating) · [Showcase](https://docs.molt.bot/start/showcase) · [FAQ](https://docs.molt.bot/start/faq) · [Wizard](https://docs.molt.bot/start/wizard) · [Nix](https://github.com/moltbot/nix-clawdbot) · [Docker](https://docs.molt.bot/install/docker) · [Discord](https://discord.gg/clawd)
 
@@ -52,11 +91,85 @@ moltbot onboard --install-daemon
 The wizard installs the Gateway daemon (launchd/systemd user service) so it stays running.
 Legacy note: `clawdbot` remains available as a compatibility shim.
 
-## Quick start (TL;DR)
+## Quick Start - AgentForge (Board + CEO)
 
 Runtime: **Node ≥22**.
 
-Full beginner guide (auth, pairing, channels): [Getting started](https://docs.molt.bot/start/getting-started)
+### 1. Initialize AgentForge
+
+```bash
+# Clone and install
+git clone https://github.com/your-repo/agentforge.git
+cd agentforge
+pnpm install
+
+# Build TypeScript
+pnpm build
+
+# Initialize Board + CEO system (turnkey setup)
+node moltbot.mjs init:agentforge
+
+# Set up your AI provider
+node moltbot.mjs auth choice
+
+# Start gateway
+node moltbot.mjs gateway run --port 18789
+```
+
+### 2. Configure Human Interface (Optional)
+
+```bash
+# Set notification channel for agent requests
+node moltbot.mjs config set humanInterface.channels.notifications "agent:human:main"
+```
+
+### 3. Trigger First Board Meeting
+
+```bash
+# Manual trigger (or wait for daily cron at 9am)
+./scripts/board-meeting.sh
+
+# Watch individual board members analyze (pick any member)
+node moltbot.mjs tui --session agent:analyst:main  # Market research
+node moltbot.mjs tui --session agent:cfo:main      # Financial analysis
+node moltbot.mjs tui --session agent:cto:main      # Technical feasibility
+
+# Watch coordinator synthesize the decision
+node moltbot.mjs tui --session agent:coordinator:main
+```
+
+### 3. CEO Executes Board Decision
+
+```bash
+# Manual trigger (or wait for daily cron at 10am)
+./scripts/ceo-implement.sh
+
+# Watch CEO read coordinator and spawn workers
+node moltbot.mjs tui --session agent:ceo:main
+```
+
+### 4. Monitor Progress
+
+```bash
+# View all active agents (should show 9: 7 board + coordinator + CEO)
+node moltbot.mjs agents list
+
+# Check financial tracking
+cat ~/.moltbot/agents/ceo/LEDGER.md
+
+# View usage and budget dashboard
+node moltbot.mjs dashboard
+```
+
+**Architecture:** 7 board members analyze → Coordinator synthesizes → CEO executes → Workers build
+
+**Next:** Set up external tools (Stripe, Vercel, Google Sheets) and let it run. See [AgentForge Docs](https://docs.molt.bot/agentforge) for full guide.
+
+---
+
+## Quick Start - Moltbot (Personal Assistant)
+
+Full beginner guide (auth, pairing, channels): [Getting started](https://docs.molt.bolt/start/getting-started)
 
 ```bash
 moltbot onboard --install-daemon
@@ -66,7 +179,7 @@ moltbot gateway --port 18789 --verbose
 # Send a message
 moltbot message send --to +1234567890 --message "Hello from Moltbot"
 
-# Talk to the assistant (optionally deliver back to any connected channel: WhatsApp/Telegram/Slack/Discord/Google Chat/Signal/iMessage/BlueBubbles/Microsoft Teams/Matrix/Zalo/Zalo Personal/WebChat)
+# Talk to the assistant
 moltbot agent --message "Ship checklist" --thinking high
 ```
 

@@ -14,6 +14,7 @@ export * from "./types.discord.js";
 export * from "./types.googlechat.js";
 export * from "./types.gateway.js";
 export * from "./types.hooks.js";
+export * from "./types.human-interface.js";
 export * from "./types.imessage.js";
 export * from "./types.messages.js";
 export * from "./types.models.js";

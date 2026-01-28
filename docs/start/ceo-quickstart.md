@@ -1,81 +1,674 @@
 ---
-summary: "Quick start for autonomous CEO agent: from zero to self-directed business-building agent"
-title: CEO Agent Quick Start
+summary: "AgentForge Quick Start: Board of Directors + CEO autonomous business builder"
+title: AgentForge Quick Start (Board + CEO)
 read_when:
-  - Setting up an autonomous business-building agent
-  - You want hierarchical agent spawning (CEO → PM → Developer)
-  - Building a self-directed agent system
+  - Setting up autonomous business-building system
+  - You want hierarchical agent structure (Board → CEO → Workers)
+  - Building a fully autonomous venture system
 ---
 
-# CEO Agent Quick Start
+# AgentForge Quick Start (Board + CEO)
 
-Goal: go from **zero** → **autonomous agent building businesses** as quickly as possible.
+Goal: go from **zero** → **fully autonomous business builder** in minutes.
 
-This guide sets up a CEO agent that:
-- Runs 24/7 on a heartbeat schedule
-- Spawns sub-agents (developers, marketers, researchers) to do work
-- Maintains its own memory and strategic context
-- Persists state via git for reliability
+This guide sets up AgentForge with:
+- **Board of Directors** (7 AI executives) that meet daily to research and vote on ventures
+- **CEO Agent** that implements board decisions by spawning workers
+- **Worker Agents** (developers, marketers, etc.) that execute
+- **Autonomous loop** that runs 24/7 via cron
+
+## What You Get
+
+- Daily board meetings where Market Analyst researches real opportunities
+- Autonomous venture selection (board votes on ONE business to build)
+- CEO spawns developers and marketers to build and launch
+- Real-time financial tracking with kill switches
+- Zero human intervention required (oversight optional)
 
 ## Prerequisites
 
 - Node `>=22`
-- Moltbot CLI installed (`curl -fsSL https://molt.bot/install.sh | bash`)
-- Model auth configured (run `moltbot onboard` if not done)
-- Git installed (for workspace persistence)
+- AgentForge repository cloned
+- Model auth configured (Anthropic or OpenAI)
+- Git installed
 
 Optional but recommended:
-- GitHub account (for code repos)
+- Stripe account (for payments)
 - Vercel account (for deployments)
-- Google Cloud account (for Sheets API)
+- Google Sheets (for financial tracking)
 
-## 1. Create the CEO Workspace
+---
+
+## Setup (Turnkey)
+
+### 1. Install Dependencies
 
 ```bash
-mkdir -p ~/ceo-agent/{templates,memory,scripts}
-cd ~/ceo-agent
-git init
+cd agentforge
+pnpm install
 ```
 
-## 2. Create Core Identity Files
-
-### SOUL.md (who the agent is)
+### 2. Initialize AgentForge
 
 ```bash
-cat > ~/ceo-agent/SOUL.md << 'EOF'
-# Identity
-
-You are The Director, an autonomous AI CEO.
-
-## Primary Directive
-
-Build multiple successful businesses and accumulate wealth through delegation, automation, and strategic thinking.
-
-## Operating Principles
-
-1. **Delegate relentlessly** — Spawn sub-agents for all execution work
-2. **Move fast** — Ship MVPs, iterate based on data
-3. **Think strategically** — Focus on high-ROI opportunities
-4. **Learn continuously** — Document what works and what doesn't
-5. **Scale winners** — Double down on successful initiatives
-
-## Decision Framework
-
-For any decision, ask:
-1. Does this move toward wealth?
-2. What's the ROI (time vs potential return)?
-3. Can it scale?
-4. Can I delegate it?
-
-If #1 is no, don't do it. If #4 is yes, spawn an agent.
-EOF
+# One command sets up everything:
+# - Copies 7 board member + CEO workspaces
+# - Registers all agents in config
+# - Sets up board group session
+# - Creates cron job templates
+node moltbot.mjs init:agentforge
 ```
 
-### AGENTS.md (operating procedures)
+This creates:
+- `~/.moltbot/agents/board/` (cfo, cto, cmo, coo, analyst, risk, innovation)
+- `~/.moltbot/agents/ceo/`
+- Config with all 8 agents registered
+- Budget defaults ($50/day, $500/month)
+
+### 3. Configure AI Provider
 
 ```bash
-cat > ~/ceo-agent/AGENTS.md << 'EOF'
-# Operating Instructions
+node moltbot.mjs auth choice
+```
+
+Choose Anthropic (Claude) or OpenAI. Recommended: Claude Sonnet 4.5 for best results.
+
+### 4. Start Gateway
+
+```bash
+node moltbot.mjs gateway run --port 18789
+```
+
+---
+
+## First Board Meeting
+
+### Manual Trigger
+
+```bash
+./scripts/board-meeting.sh
+```
+
+### Watch Board Members Analyze
+
+```bash
+# Watch individual board members (pick any)
+node moltbot.mjs tui --session agent:analyst:main      # Market research
+node moltbot.mjs tui --session agent:cfo:main          # Financial analysis
+node moltbot.mjs tui --session agent:cto:main          # Technical feasibility
+```
+
+### Watch Coordinator Synthesize
+
+```bash
+# Wait ~5 minutes for board members to respond, then:
+node moltbot.mjs tui --session agent:coordinator:main
+```
+
+**What happens:**
+1. All 7 board members receive role-specific prompts (in parallel)
+2. Market Analyst browses web for real opportunities
+3. Each member analyzes from their perspective (CFO: finances, CTO: tech, CMO: marketing, etc.)
+4. Coordinator reads all 7 sessions
+5. Coordinator synthesizes into "BOARD DECISION: Build [Product]. Budget: $X. Kill if: [threshold]. CEO: execute."
+
+---
+
+## CEO Execution
+
+### Manual Trigger
+
+```bash
+./scripts/ceo-implement.sh
+```
+
+### Watch CEO Execute
+
+```bash
+node moltbot.mjs tui --session agent:ceo:main
+```
+
+**What happens:**
+1. CEO reads board transcript
+2. CEO spawns developer agent with product specs
+3. CEO spawns marketer agent with launch plan
+4. Workers build and deploy
+5. CEO tracks spend/revenue in LEDGER.md
+6. CEO reports results to board next day
+
+---
+
+## Autonomous Operation (Cron)
+
+### Install Cron Jobs
+
+```bash
+# Add to crontab
+crontab -e
+```
+
+Add these lines:
+
+```cron
+# Board meeting daily at 9am
+0 9 * * * cd /path/to/agentforge && ./scripts/board-meeting.sh >> /tmp/board.log 2>&1
+
+# CEO execution daily at 10am (after board)
+0 10 * * * cd /path/to/agentforge && ./scripts/ceo-implement.sh >> /tmp/ceo.log 2>&1
+```
+
+Now the system runs itself:
+- 9am: Board researches, discusses, votes
+- 10am: CEO executes board decision
+- Workers build and launch
+- Next day: Repeat
+
+---
+
+## Monitor Progress
+
+### View All Agents
+
+```bash
+node moltbot.mjs agents list
+```
+
+### Check Financial Ledger
+
+```bash
+cat ~/.moltbot/agents/ceo/LEDGER.md
+```
+
+Shows:
+- Active investments
+- Spend vs. budget
+- Revenue
+- ROI
+- Kill threshold proximity
+
+### Usage Dashboard
+
+```bash
+node moltbot.mjs dashboard
+```
+
+View real-time:
+- Token usage
+- Cost by agent
+- Budget limits
+- Spend alerts
+
+---
+
+## External Tools Setup
+
+### Stripe (Payments)
+
+```bash
+# Install Stripe CLI
+brew install stripe/stripe-cli/stripe
+
+# Login
+stripe login
+
+# Get secret key
+stripe keys list
+```
+
+Add to CEO's context: "Use Stripe secret key: sk_live_..."
+
+### Vercel (Deployments)
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Login
+vercel login
+```
+
+Workers can now deploy via `vercel deploy`.
+
+### Google Sheets (Financial Tracking)
+
+1. Create a Google Sheet
+2. Share with service account email
+3. Use `sheets-finance` skill to update
+
+See [skills/sheets-finance/SKILL.md](../../skills/sheets-finance/SKILL.md) for setup.
+
+---
+
+## Board Member Personas
+
+Bundled workspaces come with these personas:
+
+### The Board (Strategy)
+
+**Market Analyst** - Autonomous opportunity discovery
+- Browses Reddit, Product Hunt, Twitter daily
+- Scrapes competitor data
+- Identifies 3-5 validated market gaps
+- Presents with real data (pricing, reviews, complaints)
+
+**CFO** - Financial strategy and capital allocation
+- Analyzes P/L and ROI
+- Recommends budget allocation
+- Sets kill thresholds
+- Protects downside
+
+**CTO** - Technical feasibility
+- Evaluates build complexity
+- Estimates timeline
+- Recommends tech stack
+- Identifies technical risks
+
+**CMO** - Marketing and customer acquisition
+- Identifies target customers
+- Plans go-to-market strategy
+- Estimates CAC (Customer Acquisition Cost)
+- Designs launch plan
+
+**COO** - Operations and resources
+- Plans resource allocation
+- Identifies bottlenecks
+- Manages timelines
+- Ensures execution feasibility
+
+**Risk Manager** - Downside protection
+- Identifies risks
+- Sets kill criteria
+- Recommends diversification
+- Prevents catastrophic losses
+
+**Innovation Lead** - Emerging opportunities
+- Tracks trends (AI, no-code, creator economy)
+- Proposes unconventional ideas
+- Advocates for experimental bets
+- Pushes for 10x thinking
+
+### CEO (Execution)
+
+**CEO** - Board implementer
+- Reads board decisions
+- Spawns workers (developers, marketers)
+- Monitors investments
+- Executes kill switches
+- Reports results to board
+
+**Authority:**
+- Can spend up to board-allocated budget
+- Can spawn unlimited workers
+- Can make tactical decisions
+- Cannot change strategy (that's board's job)
+
+---
+
+## Investment Philosophy (Built-In)
+
+The board operates on these principles:
+
+1. **ROI-Driven** - Every investment needs 3x+ expected return
+2. **No Sunk Cost** - Kill underperformers immediately per threshold
+3. **Autonomous Research** - Market Analyst browses web during meetings
+4. **Data-Based** - Decisions backed by competitor pricing, reviews, market size
+5. **Continuous Reallocation** - Freed capital from killed investments goes to new ventures
+
+---
+
+## Kill Switch System
+
+Every investment has clear kill thresholds:
+
+**Examples:**
+- "Kill if zero revenue after 30 days"
+- "Kill if CAC > $100 after 100 customers"
+- "Kill if churn > 50% month-over-month"
+- "Kill if build takes > 10 days"
+
+The system enforces these ruthlessly. No sunk cost fallacy.
+
+---
+
+## Example Flow
+
+### Day 1 (9am): Board Meeting
+
+1. Market Analyst: "I found 3 opportunities on Reddit..."
+   - Email template tool (Lemlist competitor for indie hackers)
+   - Notion template marketplace
+   - TikTok repurposing SaaS
+
+2. Board discusses each:
+   - CTO: "Email tool is easy, 5 days build"
+   - CMO: "Target r/SaaS, aim for Product Hunt top 5"
+   - CFO: "Allocate $500, expect 3x ROI in 60 days"
+   - Risk: "Kill if no revenue by day 30"
+
+3. Board votes: "Build email template tool"
+
+4. Board decision: "BOARD DECISION: Build EmailTemplates. Budget: $500. Timeline: 5 days. Kill if: no revenue by day 30. CEO: execute."
+
+### Day 1 (10am): CEO Execution
+
+1. CEO reads board decision
+2. CEO spawns developer: "Build email template SaaS..."
+3. CEO spawns marketer: "Create Product Hunt listing..."
+4. CEO logs investment in LEDGER.md
+
+### Days 2-5: Workers Build
+
+- Developer builds MVP (Next.js + Supabase + OpenAI + Stripe)
+- Developer deploys to Vercel
+- Marketer creates launch assets
+
+### Day 6: Launch
+
+- Marketer launches on Product Hunt
+- Marketer posts to r/SaaS, r/Entrepreneur
+- CEO monitors traffic and signups
+
+### Day 7-30: Monitor
+
+- CEO checks revenue daily
+- CEO updates LEDGER.md
+- If approaching kill threshold: CEO alerts board
+- If threshold hit: CEO kills investment immediately
+
+### Day 31 (9am): Board Reviews Results
+
+Board reviews:
+- Spent: $450
+- Revenue: $315 (21 customers × $15/mo)
+- ROI so far: -30% (but only 1 month in)
+- Decision: Continue for another month, or kill?
+
+---
+
+## Financial Tracking
+
+CEO maintains `LEDGER.md` with:
+
+### Active Investments
+
+| ID | Product | Budget | Spent | Revenue | ROI | Kill Threshold | Days Remaining | Status |
+|----|---------|--------|-------|---------|-----|----------------|----------------|--------|
+| 001 | EmailTemplates | $500 | $450 | $315 | -30% | No revenue by Day 30 | 0 | At risk |
+
+### Killed Investments
+
+| ID | Product | Spent | Revenue | ROI | Reason | Lessons |
+|----|---------|-------|---------|-----|--------|---------|
+| - | - | - | - | - | - | - |
+
+### Portfolio Summary
+
+- Total invested: $450
+- Total revenue: $315
+- Portfolio ROI: -30%
+- Win rate: 0/1 (too early)
+
+---
+
+## Recommended Next Steps
+
+1. **Set up external tools** (Stripe, Vercel, Google Sheets)
+2. **Install cron jobs** for daily board meetings
+3. **Monitor first few cycles** to ensure smooth operation
+4. **Set budget limits** via dashboard ($50/day default)
+5. **Configure notification channel** (Slack/Discord) for alerts
+
+---
+
+## Human Interface System
+
+AgentForge agents can request human help when blocked or need approval.
+
+### How Agents Request Help
+
+Agents use the `request_human` tool:
+
+```bash
+request_human \
+  --priority urgent \
+  --category access \
+  --title "Need Stripe API keys" \
+  --description "Building checkout, need production keys" \
+  --suggestedAction "Set via: node moltbot.mjs config set..." \
+  --timeout "2h"
+```
+
+### How to View Requests
+
+**Via TUI:**
+```bash
+node moltbot.mjs tui --session agent:human:main
+```
+
+**Via Gateway API:**
+```bash
+# List all requests
+curl http://localhost:18789 -X POST -H "Content-Type: application/json" -d '{
+  "method": "human.requests.list",
+  "params": {}
+}'
+
+# Get specific request
+curl http://localhost:18789 -X POST -H "Content-Type: application/json" -d '{
+  "method": "human.requests.get",
+  "params": {"requestId": "REQ-XXXXX"}
+}'
+```
+
+### How to Respond
+
+**Via TUI:**
+```bash
+# In agent:human:main session, type:
+RESPONSE REQ-XXXXX: APPROVED - Keys are sk_live_...
+```
+
+**Via Gateway API:**
+```bash
+curl http://localhost:18789 -X POST -H "Content-Type: application/json" -d '{
+  "method": "human.requests.respond",
+  "params": {
+    "requestId": "REQ-XXXXX",
+    "action": "approved",
+    "response": "Keys are sk_live_..."
+  }
+}'
+```
+
+### Request Categories
+
+- **approval** - Spending >$100, public posts, deployments
+- **access** - API keys, credentials, external accounts
+- **blocked** - Stuck on task >2 hours
+- **critical** - Legal, compliance, high-risk decisions
+
+### Request Priorities
+
+- **urgent** - Needs response within 2 hours
+- **high** - Needs response within 12 hours
+- **medium** - Needs response within 24 hours
+- **low** - Needs response within 72 hours
+
+---
+
+## Troubleshooting
+
+### Board not selecting a venture
+
+**Likely cause:** Market Analyst not doing web research
+
+**Fix:** Check that `browser` tool is working:
+```bash
+node moltbot.mjs agent --message "Use browser tool to visit reddit.com and tell me the top post"
+```
+
+### CEO not spawning workers
+
+**Likely cause:** Board decision unclear
+
+**Fix:** Check board transcript has "BOARD DECISION: ..." format
+
+### Workers not making progress
+
+**Likely cause:** Missing external tools (Vercel CLI, etc.)
+
+**Fix:** Install required tools and verify they work:
+```bash
+vercel --version
+stripe --version
+```
+
+---
+
+## Related Skills
+
+- [`invest-capital`](../../skills/invest-capital/SKILL.md) - Investment framework
+- [`sheets-finance`](../../skills/sheets-finance/SKILL.md) - Financial tracking
+- [`stripe`](../../skills/stripe/SKILL.md) - Payment integration
+- [`vercel`](../../skills/vercel/SKILL.md) - Deployment
+- [`browser-automation`](../../skills/browser-automation/SKILL.md) - Web research
+
+---
+
+## Architecture Diagram
+
+```mermaid
+sequenceDiagram
+    participant Cron
+    participant Board
+    participant CEO
+    participant Workers
+    participant Market
+    
+    Cron->>Board: Daily 9am trigger
+    Board->>Market: Research opportunities
+    Market-->>Board: Market data
+    Board->>Board: Discuss and vote
+    Board->>CEO: "DECISION: Build X, Budget $Y"
+    Cron->>CEO: Daily 10am trigger
+    CEO->>Workers: Spawn developers, marketers
+    Workers->>Market: Build and launch product
+    Market-->>Workers: Traffic, revenue
+    Workers->>CEO: Report progress
+    CEO->>Board: Status update (next meeting)
+```
+
+---
+
+1. **Monitor first board meeting** - Watch Market Analyst research
+2. **Verify CEO execution** - Check that workers are spawned
+3. **Set up external tools** - Stripe, Vercel, Google Sheets
+4. **Configure budget alerts** - Via dashboard
+5. **Let it run** - Autonomous operation requires no intervention
+
+---
+
+## FAQ
+
+### Can I override board decisions?
+
+Yes - you're the LP. The board is your GP. But the goal is autonomous operation, so overrides should be rare.
+
+### What if the board picks a bad idea?
+
+The kill switch system protects you. Bad investments get terminated quickly per threshold.
+
+### How much capital should I start with?
+
+Start small ($100-500 total budget). Scale up as the system proves itself.
+
+### Can I have the board meet more frequently?
+
+Yes - edit the cron schedule. But daily is recommended to give CEO time to execute.
+
+### Can I add more board members?
+
+Yes - create additional workspaces and add to the board group in config.
+
+---
+
+## Comparison: Old CEO vs. New Board + CEO
+
+| Aspect | Old (Single CEO) | New (Board + CEO) |
+|--------|------------------|-------------------|
+| Strategy | CEO decides | Board decides via discussion |
+| Research | CEO does it | Market Analyst specialized role |
+| Risk Management | CEO judgment | Dedicated Risk Manager |
+| Technical Feasibility | CEO estimates | CTO specialized analysis |
+| Marketing | CEO plans | CMO specialized expertise |
+| Decision Quality | One perspective | 7 specialized perspectives |
+| Autonomous Ideation | Limited | Market Analyst browses web daily |
+
+---
+
+## Advanced: Customizing Board Members
+
+Each board member's `SOUL.md` can be customized:
+
+```bash
+# Edit a board member's persona
+nano ~/.moltbot/agents/board/analyst/SOUL.md
+```
+
+Examples:
+- Make Market Analyst focus on specific industries (SaaS, crypto, etc.)
+- Adjust CFO's risk tolerance (more conservative or aggressive)
+- Give CTO preference for specific tech stacks
+- Tune Risk Manager's kill thresholds
+
+---
+
+## System Requirements
+
+- **CPU:** Any modern CPU (multi-core recommended for parallel workers)
+- **RAM:** 4GB minimum, 8GB+ recommended
+- **Storage:** 10GB+ for codebase, builds, and sessions
+- **Network:** Stable connection for web research and API calls
+- **OS:** macOS, Linux, or WSL2 on Windows
+
+---
+
+## Cost Expectations
+
+With default budget ($50/day, $500/month):
+
+**Token Usage:**
+- Board meeting: ~50K tokens (~$0.15-0.50 depending on model)
+- CEO execution: ~20K tokens (~$0.06-0.20)
+- Workers: Variable based on task
+
+**Monthly estimate:** $50-200 in API costs with moderate activity.
+
+Use the dashboard to monitor real-time spend.
+
+---
+
+## Related Documentation
+
+- [Autonomous Agents](/concepts/autonomous-agents) - Detailed agent patterns
+- [Sub-agents](/tools/subagents) - Worker spawning mechanics
+- [Heartbeat](/gateway/heartbeat) - Scheduling and cron
+- [Budget System](/configuration/budget) - Spending limits and alerts
+- [Skills](/tools/skills) - Available capabilities
+
+---
+
+## Support
+
+- **Discord:** [discord.gg/clawd](https://discord.gg/clawd)
+- **Docs:** [docs.molt.bot](https://docs.molt.bot)
+- **GitHub:** [github.com/moltbot/moltbot](https://github.com/moltbot/moltbot)
+
+---
+
+**Let the board meet. Let the CEO execute. Let the workers build.**
+
+**Autonomous. Relentless. Profitable.**
 
 ## Session Startup
 
@@ -95,381 +688,3 @@ sessions_spawn task:"You are a [ROLE] Agent.
 Project: [Name]
 Status: [Current state]
 Repo: [URL if applicable]
-Deadline: [When]
-
-=== YOUR TASK ===
-[Clear instructions]
-
-=== SUCCESS CRITERIA ===
-- [Criterion 1]
-- [Criterion 2]
-
-Report back with: what you did, where it is, any blockers."
-```
-
-## Memory System
-
-- **MEMORY.md**: Long-term strategic memory (projects, learnings, contacts)
-- **memory/YYYY-MM-DD.md**: Daily logs
-- **templates/*.md**: Role templates for sub-agents
-
-## Tools Available
-
-- `sessions_spawn` — create sub-agents
-- `browser` — web research, automation
-- `himalaya` — email (if configured)
-- `gh` — GitHub operations
-- Full shell access for anything else
-EOF
-```
-
-### HEARTBEAT.md (recurring tasks)
-
-```bash
-cat > ~/ceo-agent/HEARTBEAT.md << 'EOF'
-# Heartbeat Checklist
-
-## Every Heartbeat (rotate through)
-
-### Active Agents
-- [ ] Check `/subagents list` for active work
-- [ ] Review completed agent announcements
-- [ ] Spawn follow-up tasks as needed
-
-### Business Status
-- [ ] Review MEMORY.md for active projects
-- [ ] Check deployed services
-- [ ] Note metrics: revenue, users, progress
-
-### Opportunity Scan
-- [ ] Research new business ideas
-- [ ] Check competitor activity
-- [ ] Evaluate new tools/platforms
-
-## Persistence (every heartbeat)
-
-Run: `./scripts/sync.sh`
-
-## Current Focus
-
-**Primary:** [SET YOUR FIRST GOAL]
-**Secondary:** [SET BACKUP GOAL]
-**Exploring:** [SET RESEARCH AREA]
-EOF
-```
-
-### MEMORY.md (strategic memory)
-
-```bash
-cat > ~/ceo-agent/MEMORY.md << 'EOF'
-# Strategic Memory
-
-## Active Projects
-
-*None yet — time to start building!*
-
-## Key Learnings
-
-*Document what works and what doesn't here.*
-
-## Metrics Dashboard
-
-| Metric | Value |
-|--------|-------|
-| Total MRR | $0 |
-| Active Projects | 0 |
-| Successful Launches | 0 |
-
-## Contacts & Resources
-
-*Important accounts, services, credentials references.*
-EOF
-```
-
-### IDENTITY.md (display info)
-
-```bash
-cat > ~/ceo-agent/IDENTITY.md << 'EOF'
-name: The Director
-role: Digital Executive
-emoji: 💼
-tagline: Build. Delegate. Scale. Repeat.
-EOF
-```
-
-## 3. Create Sub-Agent Templates
-
-### Developer Template
-
-```bash
-cat > ~/ceo-agent/templates/developer.md << 'EOF'
-# Developer Agent
-
-## Role
-Ship code fast and well.
-
-## Tools
-- Claude Code: `bash pty:true command:"claude '[TASK]'"`
-- GitHub CLI: `gh repo create`, `gh pr create`
-- Vercel: `vercel --prod`
-
-## Standards
-- Clean, working code
-- Basic tests when appropriate
-- Clear commit messages
-- Deploy when ready
-
-## Process
-1. Understand requirements
-2. Build the solution
-3. Test it works
-4. Deploy or prepare PR
-5. Report back with results
-EOF
-```
-
-### PM Template
-
-```bash
-cat > ~/ceo-agent/templates/pm.md << 'EOF'
-# Product Manager Agent
-
-## Role
-Coordinate development, prioritize features, ship products.
-
-## Authority
-Can spawn: Developer, Marketing, Research agents
-
-## Process
-1. Define MVP scope
-2. Spawn Developer for building
-3. Spawn Marketer for launch prep
-4. Coordinate and ship
-5. Report outcomes
-EOF
-```
-
-## 4. Create Sync Script
-
-```bash
-cat > ~/ceo-agent/scripts/sync.sh << 'EOF'
-#!/bin/bash
-cd "$(dirname "$0")/.."
-
-if git diff --quiet && git diff --cached --quiet; then
-    echo "[sync] No changes"
-    exit 0
-fi
-
-git add -A
-git commit -m "checkpoint $(date +%Y-%m-%d-%H%M)" 2>/dev/null || true
-
-if git remote get-url origin &>/dev/null; then
-    git push origin main 2>/dev/null || echo "[sync] Push failed"
-else
-    echo "[sync] No remote configured"
-fi
-EOF
-chmod +x ~/ceo-agent/scripts/sync.sh
-```
-
-## 5. Configure Moltbot
-
-Add the CEO agent to your config:
-
-```bash
-moltbot config edit
-```
-
-Add this configuration:
-
-```json5
-{
-  agents: {
-    list: [
-      {
-        id: "ceo",
-        name: "The Director",
-        workspace: "~/ceo-agent",
-        model: "anthropic/claude-sonnet-4-5",
-        subagents: {
-          allowAgents: ["*"],
-          model: "anthropic/claude-sonnet-4-5"
-        },
-        sandbox: {
-          mode: "off"
-        },
-        heartbeat: {
-          every: "5m",
-          activeHours: {
-            start: "00:00",
-            end: "24:00"
-          },
-          target: "none"
-        }
-      }
-    ],
-    defaults: {
-      subagents: {
-        maxConcurrent: 50
-      }
-    }
-  }
-}
-```
-
-Key settings:
-- `subagents.allowAgents: ["*"]` — enables hierarchical spawning
-- `sandbox.mode: "off"` — full system access
-- `heartbeat.every: "5m"` — checks every 5 minutes
-- `heartbeat.target: "none"` — runs silently (change to `"telegram"` to get updates)
-
-## 6. Set Up Git Remote (Optional but Recommended)
-
-Create a private repo on GitHub, then:
-
-```bash
-cd ~/ceo-agent
-git remote add origin git@github.com:YOUR_USERNAME/ceo-agent-private.git
-git push -u origin main
-```
-
-## 7. Start the Gateway
-
-```bash
-moltbot gateway run --verbose
-```
-
-Or if you have a daemon installed:
-
-```bash
-moltbot gateway restart
-```
-
-## 8. Verify Setup
-
-```bash
-# Check the CEO agent is configured
-moltbot agents list
-
-# Check heartbeat settings
-moltbot config get agents.list
-
-# Monitor agent activity
-moltbot sessions --agent ceo --active
-```
-
-## 9. Give Your First Task
-
-Send a message to the CEO agent:
-
-```bash
-moltbot agent --agent ceo --message "Read your SOUL.md and HEARTBEAT.md. Update your Current Focus in HEARTBEAT.md with your first business initiative. Then spawn a research agent to validate the idea."
-```
-
-Or interact via the Control UI:
-
-```bash
-moltbot dashboard
-# Select the "ceo" agent in the UI
-```
-
-## 10. Monitor Progress
-
-Watch what the CEO is doing:
-
-```bash
-# See active sub-agents
-moltbot agent --agent ceo --message "/subagents list"
-
-# Check session history
-moltbot sessions --agent ceo
-
-# View the workspace
-ls -la ~/ceo-agent/
-cat ~/ceo-agent/MEMORY.md
-```
-
-## Recommended Next Steps
-
-1. **Add notification channel**: Update `heartbeat.target` to `"telegram"` or `"whatsapp"` to receive updates
-
-2. **Configure email**: Set up himalaya for business communications
-   ```bash
-   moltbot configure --section himalaya
-   ```
-
-3. **Add financial tracking**: Create a Google Sheet and configure the sheets-finance skill
-
-4. **Set up deployments**: Install Vercel CLI
-   ```bash
-   npm i -g vercel
-   vercel login
-   ```
-
-5. **Enable GitHub**: Authenticate GitHub CLI
-   ```bash
-   gh auth login
-   ```
-
-## Troubleshooting
-
-### Agent Not Running Heartbeats
-
-Check:
-```bash
-moltbot config get agents.list
-# Verify heartbeat.every is set
-```
-
-### Sub-Agents Not Spawning
-
-Check:
-```bash
-moltbot config get agents.list
-# Verify subagents.allowAgents includes "*" or target agents
-```
-
-### Workspace Not Persisting
-
-Verify git is set up:
-```bash
-cd ~/ceo-agent
-git status
-git remote -v
-```
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    CEO Agent                             │
-│  ~/ceo-agent/                                           │
-│  - SOUL.md (identity)                                   │
-│  - AGENTS.md (procedures)                               │
-│  - HEARTBEAT.md (recurring tasks)                       │
-│  - MEMORY.md (strategic memory)                         │
-│  - templates/ (sub-agent roles)                         │
-└─────────────────────┬───────────────────────────────────┘
-                      │ sessions_spawn
-          ┌───────────┼───────────┐
-          ▼           ▼           ▼
-    ┌─────────┐ ┌─────────┐ ┌─────────┐
-    │   PM    │ │Developer│ │Researcher│
-    │  Agent  │ │  Agent  │ │  Agent   │
-    └────┬────┘ └─────────┘ └──────────┘
-         │ sessions_spawn
-    ┌────┴────┐
-    ▼         ▼
-┌───────┐ ┌────────┐
-│  Dev  │ │Marketer│
-│ Agent │ │ Agent  │
-└───────┘ └────────┘
-```
-
-## Related Docs
-
-- [Autonomous Agents](/concepts/autonomous-agents) — detailed patterns and configuration
-- [Sub-agents](/tools/subagents) — spawning mechanics
-- [Heartbeat](/gateway/heartbeat) — scheduling configuration
-- [Skills](/tools/skills) — available capabilities
