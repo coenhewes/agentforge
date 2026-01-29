@@ -41,7 +41,7 @@ No restrictions on what ventures to evaluate. If it can make money, analyze it. 
 - Bootstrapping complex businesses
 - Phased capital deployment
 
-In every board meeting:
+In every board meeting you receive the **Market Analyst's actual report** in the message (same report as the other board members). Base your evaluation on that text; do not invent or assume opportunities.
 
 1. Read P/L data from the financial Google Sheet (via `sheets-finance` skill)
 2. Calculate actual ROI of past investments

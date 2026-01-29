@@ -20,6 +20,8 @@ request_human --priority high --category blocked --title "Board deadlocked on de
 
 ## Your Process
 
+Board meetings use shared evidence: all board members (CFO, CTO, CMO, COO, Risk, Innovation) have already seen the same Market Analyst report and responded to it. You synthesize from that aligned discussion.
+
 ### 1. Collect Board Input
 
 When triggered, you must read the latest responses from all 7 board members:

@@ -331,6 +331,113 @@ jq '.models = {
 
 **Replace `YOUR_GOOGLE_AI_KEY_HERE` with your actual Google AI Studio key.**
 
+#### Option 4: Ollama (Local or Cloud)
+
+**If using Ollama Cloud (with credits):**
+```bash
+jq '.models = {
+  "mode": "merge",
+  "providers": {
+    "ollama": {
+      "baseUrl": "https://api.ollama.ai/v1",
+      "apiKey": "YOUR_OLLAMA_API_KEY_HERE",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "llama3.3",
+          "name": "Llama 3.3",
+          "api": "openai-completions",
+          "reasoning": false,
+          "input": ["text"],
+          "cost": {
+            "input": 0.0,
+            "output": 0.0,
+            "cacheRead": 0.0,
+            "cacheWrite": 0.0
+          },
+          "contextWindow": 128000,
+          "maxTokens": 8192
+        }
+      ]
+    }
+  }
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**Replace `YOUR_OLLAMA_API_KEY_HERE` with your actual Ollama API key.**
+
+**⚠️ IMPORTANT:** If you're using Ollama Cloud with hourly credit limits, **configure fallbacks** (see Step 5e below) to automatically switch to another provider when credits run out.
+
+### 5e. Configure Model Fallbacks (Recommended for Ollama Cloud)
+
+**Why:** When Ollama runs out of credits or hits rate limits, agents will automatically fall back to your backup provider.
+
+**Add fallback configuration:**
+
+```bash
+# Read current config
+CURRENT_CONFIG=$(cat ~/.clawdbot/moltbot.json)
+
+# Add fallbacks (example: Ollama primary with OpenAI fallback)
+jq '.agents.defaults.model = {
+  "primary": "ollama/llama3.3",
+  "fallbacks": ["openai/gpt-5-mini"]
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**Common fallback patterns:**
+
+**Pattern 1: Ollama → OpenAI**
+```bash
+jq '.agents.defaults.model = {
+  "primary": "ollama/llama3.3",
+  "fallbacks": ["openai/gpt-5-mini"]
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**Pattern 2: Ollama → Anthropic**
+```bash
+jq '.agents.defaults.model = {
+  "primary": "ollama/llama3.3",
+  "fallbacks": ["anthropic/claude-sonnet-4.5"]
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**Pattern 3: Ollama → Google Gemini**
+```bash
+jq '.agents.defaults.model = {
+  "primary": "ollama/llama3.3",
+  "fallbacks": ["google/gemini-2.0-flash-exp"]
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**Pattern 4: Multiple fallbacks (Ollama → OpenAI → Anthropic)**
+```bash
+jq '.agents.defaults.model = {
+  "primary": "ollama/llama3.3",
+  "fallbacks": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4.5"]
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**How it works:**
+- When Ollama hits credit limits or rate limits, Moltbot automatically tries the fallback models in order
+- Falls back only on auth failures, rate limits, and timeouts (not on other errors)
+- Each fallback is tried until one succeeds or all fail
+- Logs show which model was used: check `sudo journalctl -u moltbot-gateway` for fallback attempts
+
+**Verify fallbacks are configured:**
+```bash
+cat ~/.clawdbot/moltbot.json | jq '.agents.defaults.model'
+```
+
+**Expected output:**
+```json
+{
+  "primary": "ollama/llama3.3",
+  "fallbacks": ["openai/gpt-5-mini"]
+}
+```
+
 ### 5b. Verify Config
 
 ```bash
@@ -689,6 +796,9 @@ crontab -l
 
 **Should show your cron jobs**
 
+
+
+
 ---
 
 ## Step 9: Test the System (15 minutes)
@@ -861,6 +971,61 @@ pnpm install
 pnpm build
 sudo systemctl restart moltbot-gateway
 ```
+
+### Deploying the two-way board meeting update
+
+**Short upgrade-only steps:** see [VPS_UPGRADE_BOARD_TWO_WAY.md](VPS_UPGRADE_BOARD_TWO_WAY.md).
+
+The two-way consensus flow adds a **helper script** and changes the **board meeting script** so all six board members (CFO, CTO, CMO, COO, Risk, Innovation) see the analyst’s actual report before responding. The VPS needs these repo updates; config (`~/.clawdbot/moltbot.json`), gateway, and cron are unchanged.
+
+**Files that must be on the VPS:**
+
+| File | Purpose |
+|------|--------|
+| `scripts/board-get-session-message.mjs` | **New.** Reads an agent’s last assistant message from session transcript. |
+| `scripts/board-meeting.sh` | **Updated.** Runs analyst first, gets brief, then runs the six with shared analyst report, then coordinator. |
+
+**Option A — Git (recommended)**
+
+1. On your **local machine**: commit and push the new/updated files to the branch the VPS uses (e.g. `main`):
+   ```bash
+   git add scripts/board-get-session-message.mjs scripts/board-meeting.sh
+   git commit -m "Board: two-way consensus — shared analyst brief"
+   git push origin main
+   ```
+2. On the **VPS** (as `agentforge`):
+   ```bash
+   cd ~/agentforge
+   git pull --rebase origin main
+   chmod +x scripts/board-get-session-message.mjs   # if needed
+   ```
+3. No gateway restart or cron change. Next board run (e.g. 9am cron) will use the new flow.
+
+**Option B — Copy files without Git**
+
+If the VPS does not pull from your repo, copy the two files from your dev machine:
+
+```bash
+# From your local machine (replace agentforge@VPS_IP and path if different)
+scp scripts/board-get-session-message.mjs scripts/board-meeting.sh agentforge@YOUR_VPS_IP:~/agentforge/scripts/
+```
+
+Then on the VPS:
+```bash
+cd ~/agentforge
+chmod +x scripts/board-get-session-message.mjs
+```
+
+**State directory:** The helper uses `CLAWDBOT_STATE_DIR` or `MOLTBOT_STATE_DIR` if set, else `~/.clawdbot`. Ensure the VPS runs the board script with the same state dir as the gateway (e.g. same user and env).
+
+**Quick test on VPS:**
+```bash
+cd ~/agentforge
+./scripts/board-meeting.sh
+```
+If the analyst has not run yet, the helper may return empty once; the script retries. Confirm in logs that the six members receive the shared analyst brief.
+
+**Revert (script only):** To go back to the old one-way flow, restore a backup of `scripts/board-meeting.sh` (e.g. `scripts/board-meeting.sh.bak`) and remove or ignore `scripts/board-get-session-message.mjs`. Config and gateway are untouched.
 
 ---
 
@@ -1430,7 +1595,7 @@ rsync -avz agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidian-vault/ ~
 
 **Your AgentForge is now:**
 - ✅ Running 24/7 on VPS
-- ✅ Fully automated (cron jobs)
+- ✅ Fully automated (cron jobs)git ad
 - ✅ Secured (firewall, systemd)
 - ✅ Monitored (logs, scripts)
 - ✅ Backed up (automated)
@@ -1452,3 +1617,9 @@ rsync -avz agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidian-vault/ ~
 - Watch capital grow from $0
 
 **🚀 Let the AI board build your business empire!**
+
+
+# Create or edit the plist / service config so the service gets the env.
+# For Homebrew on macOS, often:
+launchctl setenv OLLAMA_NUM_CTX 32768
+# Then restart the Ollama app / service.

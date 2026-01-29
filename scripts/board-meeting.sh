@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-# Board Meeting Trigger Script
-# Sends prompt to all 7 board members, then coordinator synthesizes
+# Board Meeting Trigger Script (two-way consensus)
+# 1. Run analyst only; get analyst report.
+# 2. Send analyst report to CFO, CTO, CMO, COO, risk, innovation so they react to the same evidence.
+# 3. Coordinator synthesizes from all 7.
 #
 
 set -euo pipefail
@@ -15,13 +17,12 @@ cd "$REPO_ROOT"
 
 echo "[$(date)] Starting board meeting for ${DATE}..." >&2
 
-# Define board members
-BOARD_MEMBERS=("analyst" "cfo" "cto" "cmo" "coo" "risk" "innovation")
+# Analyst runs first; other six see analyst's report (shared context)
+BOARD_MEMBERS_AFTER_ANALYST=("cfo" "cto" "cmo" "coo" "risk" "innovation")
 
-# Role-specific prompts for each board member
-declare -A PROMPTS
-
-PROMPTS[analyst]="Board Meeting ${DATE} - YOUR ROLE: Market Analyst
+# --- Phase 1: Run analyst only ---
+echo "[$(date)] Triggering analyst (Market Analyst researches opportunities)..." >&2
+node moltbot.mjs agent --agent analyst --message "Board Meeting ${DATE} - YOUR ROLE: Market Analyst
 
 CRITICAL: Use the browser tool RIGHT NOW to research opportunities. Do not make up hypothetical ideas.
 
@@ -38,13 +39,37 @@ For each opportunity, provide:
 - Gap: What's missing?
 - Est. ROI: Based on competitor pricing
 
-Present your findings clearly. The coordinator will read your response."
+Present your findings clearly. The coordinator will read your response." > /dev/null 2>&1 \
+  || echo "  Warning: analyst failed" >&2
 
-PROMPTS[cfo]="Board Meeting ${DATE} - YOUR ROLE: CFO
+# Wait for analyst to finish writing; then get last message (with retries)
+echo "[$(date)] Giving analyst time to finish writing..." >&2
+sleep 5
+ANALYST_BRIEF=""
+for _ in 1 2 3 4 5; do
+  ANALYST_BRIEF=$(node "$REPO_ROOT/scripts/board-get-session-message.mjs" --agent analyst 2>/dev/null || true)
+  if [[ -n "${ANALYST_BRIEF:-}" ]]; then
+    break
+  fi
+  echo "[$(date)] Waiting for analyst response (retry)..." >&2
+  sleep 10
+done
 
-The Market Analyst will present opportunities. Your job:
+if [[ -z "${ANALYST_BRIEF:-}" ]]; then
+  echo "[$(date)] WARNING: Could not read analyst report. Other members will run without shared context." >&2
+fi
 
-1. Evaluate financial viability of each opportunity
+# --- Phase 2: Run the other six with shared analyst report ---
+# Use temp files to avoid escaping issues with analyst content
+TMP_ANALYST=$(mktemp)
+TMP_MSG=$(mktemp)
+trap 'rm -f "$TMP_ANALYST" "$TMP_MSG"' EXIT
+printf '%s' "${ANALYST_BRIEF:-}" > "$TMP_ANALYST"
+
+# Role-specific instructions (after "Using the report above")
+declare -A ROLE_INSTRUCTIONS
+ROLE_INSTRUCTIONS[cfo]="Your job:
+1. Evaluate financial viability of each opportunity above
 2. Recommend budget allocation (how much to invest?)
 3. Calculate expected ROI and timeline
 4. Set kill thresholds based on risk/reward
@@ -58,11 +83,8 @@ For each opportunity, state:
 
 Be conservative but opportunistic. Present your analysis clearly."
 
-PROMPTS[cto]="Board Meeting ${DATE} - YOUR ROLE: CTO
-
-The Market Analyst will present opportunities. Your job:
-
-1. Assess technical feasibility
+ROLE_INSTRUCTIONS[cto]="Your job:
+1. Assess technical feasibility of each opportunity above
 2. Estimate build timeline (be realistic + 50% buffer)
 3. Recommend tech stack
 4. Calculate infrastructure costs
@@ -77,11 +99,8 @@ For each opportunity, state:
 
 Prefer boring, proven tech. Present your analysis clearly."
 
-PROMPTS[cmo]="Board Meeting ${DATE} - YOUR ROLE: CMO
-
-The Market Analyst will present opportunities. Your job:
-
-1. Identify target customers
+ROLE_INSTRUCTIONS[cmo]="Your job:
+1. Identify target customers for each opportunity above
 2. Recommend acquisition channels (organic preferred)
 3. Estimate Customer Acquisition Cost (CAC)
 4. Design go-to-market strategy
@@ -96,11 +115,8 @@ For each opportunity, state:
 
 Focus on low-cost, high-impact channels. Present your analysis clearly."
 
-PROMPTS[coo]="Board Meeting ${DATE} - YOUR ROLE: COO
-
-The Market Analyst will present opportunities. Your job:
-
-1. Assess resource requirements (people, tools, freelancers)
+ROLE_INSTRUCTIONS[coo]="Your job:
+1. Assess resource requirements (people, tools, freelancers) for each opportunity above
 2. Evaluate operational complexity
 3. Identify bottlenecks and dependencies
 4. Validate timeline feasibility
@@ -115,11 +131,8 @@ For each opportunity, state:
 
 Be pragmatic. Present your analysis clearly."
 
-PROMPTS[risk]="Board Meeting ${DATE} - YOUR ROLE: Risk Manager
-
-The Market Analyst will present opportunities. Your job:
-
-1. Identify risks (market, execution, financial, opportunity cost)
+ROLE_INSTRUCTIONS[risk]="Your job:
+1. Identify risks (market, execution, financial, opportunity cost) for each opportunity above
 2. Set appropriate kill thresholds
 3. Assess downside scenarios
 4. Recommend risk mitigation
@@ -134,11 +147,8 @@ For each opportunity, state:
 
 Protect the downside. Present your analysis clearly."
 
-PROMPTS[innovation]="Board Meeting ${DATE} - YOUR ROLE: Innovation Lead
-
-The Market Analyst will present opportunities. Your job:
-
-1. Add 1-2 unconventional or experimental ideas
+ROLE_INSTRUCTIONS[innovation]="Your job:
+1. Add 1-2 unconventional or experimental ideas given the opportunities above
 2. Identify emerging trends (AI, no-code, creator economy, etc.)
 3. Propose high-risk/high-reward alternatives
 4. Challenge conservative thinking
@@ -153,11 +163,30 @@ For your ideas, provide:
 
 Think 10x, not 2x. But ground ideas in reality. Present clearly."
 
-# Send prompts to all board members SEQUENTIALLY
-echo "[$(date)] Running board members sequentially..." >&2
-for member in "${BOARD_MEMBERS[@]}"; do
+# Display names for prompt header (e.g. cfo -> CFO, risk -> Risk Manager)
+declare -A ROLE_NAMES
+ROLE_NAMES[cfo]="CFO"
+ROLE_NAMES[cto]="CTO"
+ROLE_NAMES[cmo]="CMO"
+ROLE_NAMES[coo]="COO"
+ROLE_NAMES[risk]="Risk Manager"
+ROLE_NAMES[innovation]="Innovation Lead"
+
+echo "[$(date)] Running board members (with shared analyst report)..." >&2
+for member in "${BOARD_MEMBERS_AFTER_ANALYST[@]}"; do
   echo "  Triggering: $member" >&2
-  node moltbot.mjs agent --agent "$member" --message "${PROMPTS[$member]}" > /dev/null 2>&1 \
+  {
+    echo "Board Meeting ${DATE} - YOUR ROLE: ${ROLE_NAMES[$member]:-$member}"
+    echo ""
+    echo "Here is the Market Analyst's report:"
+    echo ""
+    cat "$TMP_ANALYST"
+    echo ""
+    echo "---"
+    echo ""
+    echo "Using the report above, ${ROLE_INSTRUCTIONS[$member]}"
+  } > "$TMP_MSG"
+  node moltbot.mjs agent --agent "$member" --message "$(cat "$TMP_MSG")" > /dev/null 2>&1 \
     || echo "  Warning: $member failed" >&2
 done
 
@@ -165,7 +194,7 @@ done
 echo "[$(date)] Giving agents a moment to finish writing..." >&2
 sleep 5
 
-# Now trigger coordinator to synthesize
+# --- Phase 3: Coordinator synthesizes from all 7 ---
 echo "[$(date)] Triggering coordinator to synthesize decision..." >&2
 node moltbot.mjs agent --agent coordinator --message "Board Meeting ${DATE} - SYNTHESIZE DECISION
 
@@ -178,7 +207,7 @@ Read the latest responses from all 7 board members:
 - agent:risk:main (Risk assessment)
 - agent:innovation:main (Alternative ideas)
 
-Your task:
+Board members have all seen the same analyst report and responded to it. Your task:
 1. Read each member's latest response using sessions_history
 2. Extract key points from each
 3. Identify which opportunity has the most support

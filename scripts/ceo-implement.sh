@@ -18,7 +18,7 @@ Your tasks today:
    - Use sessions_history to read agent:coordinator:main (latest response)
    - The coordinator has synthesized the board's decision
    - Extract: product name, budget, timeline, build plan, marketing plan, kill thresholds
-   - If coordinator says 'NO CONSENSUS', wait for next meeting
+   - If coordinator says 'NO CONSENSUS', proceed with best-effort synthesis or spawn proxies to fill gaps
 
 2. CREATE EXECUTION PLAN:
    - Break down the board's decision into specific tasks
@@ -66,9 +66,11 @@ REMEMBER:
 - Read agent:coordinator:main for the board decision (NOT individual board members)
 - You have FULL AUTHORITY to execute the board's decision
 - Do NOT ask for permission - just do it
+- Use \`gh\` and \`vercel\` CLI commands directly. They are authenticated. Don't ask for tokens.
 - Spawn workers to do the work - don't do it yourself
 - Kill bad investments quickly per thresholds (no sunk cost fallacy)
 - Track every dollar in LEDGER.md
+- Execute first, report later - don't present options and wait
 
 BEGIN EXECUTION."
 
