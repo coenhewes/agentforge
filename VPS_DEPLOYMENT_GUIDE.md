@@ -1261,6 +1261,8 @@ ls ~/.moltbot/agents/ceo/
 
 ### Board Meeting Fails
 
+**If runs time out:** Increase agent timeout and restore model config. See [VPS_CONFIG_UPDATE.md](VPS_CONFIG_UPDATE.md) for exact `jq` commands (e.g. `agents.defaults.timeoutSeconds = 1800` and default model + fallbacks).
+
 **Check script logs:**
 ```bash
 tail -100 /tmp/agentforge-board.log
