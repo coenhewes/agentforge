@@ -4,12 +4,24 @@
 
 Config, gateway, and cron are unchanged. Only repo scripts are updated.
 
+**Live TUI:** Run `./scripts/board-meeting.sh --tui` for a real-time view of the board discussion (phase, current agent, preview of each response). Use when running interactively; cron should keep using `./scripts/board-meeting.sh` without `--tui`.
+
 ---
 
 ## On the VPS (as `agentforge`)
 
 ```bash
 cd ~/agentforge
+git pull --rebase origin main
+chmod +x scripts/board-get-session-message.mjs
+```
+
+**If Git says "You have unstaged changes":**  
+Check what changed: `git status` and `git diff`. If you don’t need those local edits (typical when the VPS should match the repo), discard them and pull:
+
+```bash
+cd ~/agentforge
+git restore .
 git pull --rebase origin main
 chmod +x scripts/board-get-session-message.mjs
 ```

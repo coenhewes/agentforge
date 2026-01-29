@@ -850,6 +850,14 @@ node moltbot.mjs agent --agent cfo --message "Check your message history with se
 
 ### 10a. Trigger Board Meeting Manually
 
+**Option 1 — Live TUI (recommended when running interactively):**
+```bash
+cd ~/agentforge
+./scripts/board-meeting.sh --tui
+```
+Shows a real-time view: phase, current agent, and a short preview of each agent’s last message as they complete. Run in the foreground (not in cron).
+
+**Option 2 — Background (for cron or when you don’t need the TUI):**
 ```bash
 cd ~/agentforge
 ./scripts/board-meeting.sh
@@ -857,7 +865,7 @@ cd ~/agentforge
 
 **This will take 5-10 minutes**
 
-**Monitor progress:**
+**Monitor progress (when not using --tui):**
 ```bash
 # In another SSH session
 tail -f /tmp/agentforge-board.log
@@ -983,13 +991,14 @@ The two-way consensus flow adds a **helper script** and changes the **board meet
 | File | Purpose |
 |------|--------|
 | `scripts/board-get-session-message.mjs` | **New.** Reads an agent’s last assistant message from session transcript. |
-| `scripts/board-meeting.sh` | **Updated.** Runs analyst first, gets brief, then runs the six with shared analyst report, then coordinator. |
+| `scripts/board-meeting.sh` | **Updated.** Runs analyst first, gets brief, then runs the six with shared analyst report, then coordinator. Optional `--tui` runs the live TUI. |
+| `scripts/board-meeting-tui.mjs` | **New.** Live TUI: same flow as the shell script but shows phase, current agent, and preview of each response in real time. Used when you run `./scripts/board-meeting.sh --tui`. |
 
 **Option A — Git (recommended)**
 
 1. On your **local machine**: commit and push the new/updated files to the branch the VPS uses (e.g. `main`):
    ```bash
-   git add scripts/board-get-session-message.mjs scripts/board-meeting.sh
+   git add scripts/board-get-session-message.mjs scripts/board-meeting.sh scripts/board-meeting-tui.mjs
    git commit -m "Board: two-way consensus — shared analyst brief"
    git push origin main
    ```
@@ -1007,7 +1016,7 @@ If the VPS does not pull from your repo, copy the two files from your dev machin
 
 ```bash
 # From your local machine (replace agentforge@VPS_IP and path if different)
-scp scripts/board-get-session-message.mjs scripts/board-meeting.sh agentforge@YOUR_VPS_IP:~/agentforge/scripts/
+scp scripts/board-get-session-message.mjs scripts/board-meeting.sh scripts/board-meeting-tui.mjs agentforge@YOUR_VPS_IP:~/agentforge/scripts/
 ```
 
 Then on the VPS:

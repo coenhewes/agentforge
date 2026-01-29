@@ -11,6 +11,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Optional: run with live TUI (real-time view of phase and each agent's output)
+if [[ "${1:-}" == "--tui" ]]; then
+  exec node "$REPO_ROOT/scripts/board-meeting-tui.mjs"
+fi
+
 DATE=$(date +"%Y-%m-%d")
 
 cd "$REPO_ROOT"
