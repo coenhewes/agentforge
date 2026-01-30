@@ -35,5 +35,9 @@ export interface HumanInterfaceConfig {
       enabled?: boolean;
       subagentTimeoutMinutes?: number;
     };
+    /** Max ventures the CEO may work on in parallel; unset = no hard limit (CEO uses judgment). */
+    ventures?: {
+      maxActive?: number;
+    };
   };
 }

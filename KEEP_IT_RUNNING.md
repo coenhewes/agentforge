@@ -99,6 +99,20 @@ cat ~/.moltbot/agents/ceo/LEDGER.md
 
 Shows active ventures, spend, revenue, and status. For a TUI: `node dist/entry.js portal` (run `node scripts/sync-ledger.mjs` first so portal matches LEDGER).
 
+### 6. CEO multi-venture (optional)
+
+The CEO may work on **multiple ventures at once** when each venture fits within available capital and the CEO has capacity (as defined in the CEO SOUL). To cap concurrency, set a hard limit in config:
+
+```json
+"humanInterface": {
+  "agentforge": {
+    "ventures": { "maxActive": 3 }
+  }
+}
+```
+
+Omit `ventures.maxActive` for no hard limit (CEO uses judgment). Budget is always enforced by the system.
+
 ---
 
 ## When to intervene

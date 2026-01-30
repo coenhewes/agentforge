@@ -453,6 +453,7 @@ export function createCommandHandlers(context: CommandHandlerContext) {
         timeoutMs: opts.timeoutMs,
       });
       state.activeChatRunId = runId;
+      chatLog.updateAssistant("Working…", runId);
       setActivityStatus("waiting");
     } catch (err) {
       chatLog.addSystem(`send failed: ${String(err)}`);

@@ -305,6 +305,12 @@ export const MoltbotSchema = z
               })
               .strict()
               .optional(),
+            ventures: z
+              .object({
+                maxActive: z.number().int().positive().optional(),
+              })
+              .strict()
+              .optional(),
           })
           .strict()
           .optional(),

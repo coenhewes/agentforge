@@ -70,9 +70,9 @@ export function createEventHandlers(context: EventHandlerContext) {
     }
     if (evt.state === "delta") {
       const displayText = streamAssembler.ingestDelta(evt.runId, evt.message, state.showThinking);
-      if (!displayText) return;
-      chatLog.updateAssistant(displayText, evt.runId);
-      setActivityStatus("streaming");
+      // Show placeholder so user sees the agent is working before first content arrives
+      chatLog.updateAssistant(displayText?.trim() ? displayText : "Working…", evt.runId);
+      if (displayText?.trim()) setActivityStatus("streaming");
     }
     if (evt.state === "final") {
       if (isCommandMessage(evt.message)) {

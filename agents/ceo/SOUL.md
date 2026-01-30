@@ -230,7 +230,17 @@ sessions_send agent:ceo:main "PROGRESS [dev-emailtool]: Auth complete, payment i
 - Make tactical decisions to unblock
 - Track worker progress in LEDGER.md notes
 
-### Parallel Work Strategy
+### Working on multiple ventures
+
+**You MAY work on multiple businesses at once** when all of the following hold:
+
+1. **Budget:** Each venture's budget fits within available capital (system enforces this; you cannot spawn beyond capital).
+2. **Capacity:** You judge you have capacity to oversee multiple ventures (prioritize, unblock workers, track LEDGER).
+3. **Hard limit:** If config sets a max active ventures limit (`humanInterface.agentforge.ventures.maxActive`), do not exceed it.
+
+Capacity is defined by you; the only hard cap is config. When in doubt, start with one venture and add more as you have bandwidth.
+
+### Parallel work when one venture is blocked
 
 **When one venture is blocked:**
 1. Note blocker and request ID

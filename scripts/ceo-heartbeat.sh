@@ -39,6 +39,7 @@ Your continuous oversight tasks:
    - Always check budget before spawning
 
 6. PARALLEL WORK:
+   - You MAY work on multiple ventures at once when each fits budget and you have capacity
    - If blocked on one venture, work on others
    - Don't sit idle - maximize productivity
 

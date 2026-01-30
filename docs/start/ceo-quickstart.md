@@ -20,7 +20,7 @@ This guide sets up AgentForge with:
 ## What You Get
 
 - Daily board meetings where Market Analyst researches real opportunities
-- Autonomous venture selection (board votes on ONE business to build)
+- Autonomous venture selection (board votes on ventures; CEO may work on multiple when budget and capacity allow)
 - CEO spawns developers and marketers to build and launch
 - Real-time financial tracking with kill switches
 - Zero human intervention required (oversight optional)
