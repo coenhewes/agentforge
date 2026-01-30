@@ -634,6 +634,8 @@ node dist/entry.js tui --session agent:coordinator:main
 
 ## Step 11: First CEO Execution (5 minutes)
 
+**Before running:** Ensure the VPS has the latest code. If you have not run the update steps recently (Step 12 “Update code”), run them first so `ceo-implement.sh` is the current version. If you see `value: No such file or directory` when running the script, see Troubleshooting below.
+
 Run the CEO script. To capture output to the log and then watch it:
 
 ```bash
@@ -692,6 +694,24 @@ pnpm ui:build
 sudo systemctl restart agentforge-gateway
 ```
 
+**If build is killed or CPU maxes out (small VPS):** Add swap first (e.g. 2G), then run the build with lower priority and a memory limit:
+
+```bash
+# One-time: add 2G swap (if not already present)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# Then build with memory limit and low priority
+nice -n 19 NODE_OPTIONS=--max-old-space-size=1536 pnpm build
+pnpm ui:build
+sudo systemctl restart agentforge-gateway
+```
+
+If it still fails, see Troubleshooting (“Build killed or fails (OOM / CPU)”). You can also build on your Mac and rsync `dist/` to the VPS so the VPS never runs the heavy compile.
+
 ---
 
 ## Step 13: Remote Access
@@ -735,6 +755,10 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 
 **"Cannot find module moltbot.mjs":** Use `node dist/entry.js` for all commands (e.g. `node dist/entry.js init:agentforge`). The guide uses `dist/entry.js`; ensure `pnpm build` has been run.
 
+**ceo-implement.sh: line 40: value: No such file or directory:** The script on the VPS is an old version. The prompt contains double-quote characters; when the script runs `--message "$PROMPT"`, the first `"` inside the prompt closes the argument and bash treats the next word (e.g. `<value>`) as a file redirection. (1) Update the repo and rebuild (Step 12 “Update code”); the fixed script uses no double-quotes inside the prompt. (2) If pull says “Already up to date”, you must replace the script with the fixed version (e.g. copy from your Mac or re-apply the change). A one-line edit is not enough—the prompt has multiple double-quotes (PROVISIONING PROTOCOL and SPAWN WORKERS sections); the repo version removes them all.
+
+**Coordinator decision missing/invalid:** `ceo-implement.sh` requires a valid board decision from the coordinator. Run a board meeting first (Step 10: `./scripts/board-meeting.sh` or `./scripts/board-meeting.sh --tui`), then open `agent:coordinator:main` and ensure the coordinator’s latest response includes a `DECISION_JSON5` block. Only then run `./scripts/ceo-implement.sh`.
+
 **"Control UI assets not found":** Build the control UI with `pnpm ui:build` (Step 3b). Then restart the gateway so it serves `dist/control-ui/`. After that, the gateway root and health URL will serve the control UI.
 
 **"Unrecognized key: humanInterface":** The config schema now allows `humanInterface` (used for Stripe, heartbeat, venture runloop, etc.). Update and rebuild: `cd ~/agentforge && git pull --rebase && pnpm build`. If you previously ran `moltbot doctor --fix` and it removed `humanInterface`, re-add the Stripe block with the Option B `jq` command in Step 5g.
@@ -754,6 +778,8 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 **GitHub/Vercel not available to gateway:** Ensure `~/.agentforge-env` exists with `GITHUB_TOKEN` and `VERCEL_TOKEN` and the unit uses `EnvironmentFile=-/home/agentforge/.agentforge-env` (Step 6a). Restart the gateway after editing the env file.
 
 **sync-ledger "unable to open database file":** The venture-state code creates the DB directory if missing. If you still see this, check `--workspace` points to the correct venture dir (default `~/.moltbot/ventures/default/`) and that the user has write permission.
+
+**Build killed or fails (OOM / CPU):** Exit code 137 or “Killed” usually means the process was killed (often OOM). On a small VPS, add swap first (e.g. 2G), then run the build with a memory limit and low priority: `nice -n 19 NODE_OPTIONS=--max-old-space-size=1536 pnpm build` then `pnpm ui:build`. If needed: restrict to one CPU with `taskset -c 0`, or build on your Mac and rsync `dist/` to the VPS (`pnpm build && pnpm ui:build` on Mac, then `rsync -avz dist/ agentforge@YOUR_VPS_IP:~/agentforge/dist/`), then on the VPS only restart the gateway.
 
 ---
 

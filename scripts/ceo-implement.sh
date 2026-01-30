@@ -41,7 +41,7 @@ PROVISIONING PROTOCOL (apply to each provisioningNeeds item):
 - Attempt autonomously first:
   - Use browser to sign up / login / create API keys
   - Use email tooling for email verification when possible
-  - Store resulting secrets in config env vars (preferred): node moltbot.mjs config set env.vars.<KEY>=\"<value>\"
+  - Store resulting secrets in config env vars (preferred): node moltbot.mjs config set env.vars.<KEY>='<value>'
   - Smoke-test access via a deterministic CLI/API command
 - If blocked by CAPTCHA / SMS / KYC / 2FA push / billing details:
   - Use request_human (category=access|critical|blocked) with exact steps + current URL
@@ -56,30 +56,30 @@ PROVISIONING PROTOCOL (apply to each provisioningNeeds item):
 3. SPAWN WORKERS:
    - Use sessions_spawn to create worker agents
    - Example: Developer agent to build the product
-     sessions_spawn task:\"Build [Product] as specified by board.
-     Tech stack: [from CTO's recommendation]
+     sessions_spawn task:'Build [Product] as specified by board.
+     Tech stack: [from CTO recommendation]
      Timeline: [X] days
      Budget: \$[Y]
      Deploy to Vercel when ready.
      
      CRITICAL REPORTING PROTOCOL:
-     - Upon completion: sessions_send agent:ceo:main \\\"COMPLETE [YOUR-WORKER-ID]: <summary of what built>\\\"
-     - When blocked: sessions_send agent:ceo:main \\\"BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX\\\"
-     - Daily progress: sessions_send agent:ceo:main \\\"PROGRESS [YOUR-WORKER-ID]: <metrics and status>\\\"
-     Replace [YOUR-WORKER-ID] with your actual worker identifier.\"
+     - Upon completion: sessions_send agent:ceo:main '\''COMPLETE [YOUR-WORKER-ID]: <summary of what built>'\''
+     - When blocked: sessions_send agent:ceo:main '\''BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX'\''
+     - Daily progress: sessions_send agent:ceo:main '\''PROGRESS [YOUR-WORKER-ID]: <metrics and status>'\''
+     Replace [YOUR-WORKER-ID] with your actual worker identifier.'
    
    - Example: Marketing agent to launch
-     sessions_spawn task:\"Launch [Product] as specified by board.
-     Channels: [from CMO's plan]
+     sessions_spawn task:'Launch [Product] as specified by board.
+     Channels: [from CMO plan]
      Timeline: [X] days
      Budget: \$[Y]
      Report metrics daily.
      
      CRITICAL REPORTING PROTOCOL:
-     - Upon completion: sessions_send agent:ceo:main \\\"COMPLETE [YOUR-WORKER-ID]: <summary of results>\\\"
-     - When blocked: sessions_send agent:ceo:main \\\"BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX\\\"
-     - Daily progress: sessions_send agent:ceo:main \\\"PROGRESS [YOUR-WORKER-ID]: <metrics and status>\\\"
-     Replace [YOUR-WORKER-ID] with your actual worker identifier.\"
+     - Upon completion: sessions_send agent:ceo:main '\''COMPLETE [YOUR-WORKER-ID]: <summary of results>'\''
+     - When blocked: sessions_send agent:ceo:main '\''BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX'\''
+     - Daily progress: sessions_send agent:ceo:main '\''PROGRESS [YOUR-WORKER-ID]: <metrics and status>'\''
+     Replace [YOUR-WORKER-ID] with your actual worker identifier.'
    
    - Provide full context from board decision to workers
    - ALWAYS include the reporting protocol in every worker spawn
