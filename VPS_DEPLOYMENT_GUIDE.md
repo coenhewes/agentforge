@@ -129,8 +129,12 @@ Use your own fork or the AgentForge repo URL; the folder name (`agentforge`) is 
 ```bash
 pnpm install
 pnpm build
-ls -la dist/   # should include entry.js, cli.js, agentforge/, etc.
+pnpm ui:build
+ls -la dist/   # should include entry.js, cli.js, agentforge/, control-ui/, etc.
 ```
+
+- **`pnpm build`** – CLI and gateway runtime.
+- **`pnpm ui:build`** – Gateway control UI (web UI). Without it, the gateway will report "Control UI assets not found" when you open it in a browser or hit the health/root URL.
 
 The guide uses **`node dist/entry.js`** for all CLI commands. That file is created by `pnpm build` and works even if `moltbot.mjs` is not present in the clone.
 
@@ -630,10 +634,14 @@ node dist/entry.js tui --session agent:coordinator:main
 
 ## Step 11: First CEO Execution (5 minutes)
 
+Run the CEO script. To capture output to the log and then watch it:
+
 ```bash
-./scripts/ceo-implement.sh
+./scripts/ceo-implement.sh >> /tmp/agentforge-ceo.log 2>&1
 tail -f /tmp/agentforge-ceo.log
 ```
+
+Or run without redirection to only see the script’s own messages (CEO output is then in the session, not the log).
 
 Check CEO session and LEDGER:
 
@@ -680,6 +688,7 @@ cd ~/agentforge
 git pull --rebase origin main
 pnpm install
 pnpm build
+pnpm ui:build
 sudo systemctl restart agentforge-gateway
 ```
 
@@ -725,6 +734,8 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 ## Troubleshooting
 
 **"Cannot find module moltbot.mjs":** Use `node dist/entry.js` for all commands (e.g. `node dist/entry.js init:agentforge`). The guide uses `dist/entry.js`; ensure `pnpm build` has been run.
+
+**"Control UI assets not found":** Build the control UI with `pnpm ui:build` (Step 3b). Then restart the gateway so it serves `dist/control-ui/`. After that, the gateway root and health URL will serve the control UI.
 
 **"Unrecognized key: humanInterface":** The config schema now allows `humanInterface` (used for Stripe, heartbeat, venture runloop, etc.). Update and rebuild: `cd ~/agentforge && git pull --rebase && pnpm build`. If you previously ran `moltbot doctor --fix` and it removed `humanInterface`, re-add the Stripe block with the Option B `jq` command in Step 5g.
 
@@ -782,7 +793,7 @@ tar -czf agentforge-backup-$(date +%Y%m%d).tar.gz \
 - [ ] VPS updated, non-root user `agentforge`
 - [ ] Node 22, pnpm, git, build tools, Playwright system deps
 - [ ] Playwright browser installed (`pnpx playwright install chrome`; optional: Google Chrome .deb, bird)
-- [ ] Repo cloned, `pnpm install`, `pnpm build`
+- [ ] Repo cloned, `pnpm install`, `pnpm build`, `pnpm ui:build`
 - [ ] `node dist/entry.js init:agentforge` completed
 - [ ] AI provider configured (Gemini 3 Pro + Nano Banana Pro recommended)
 - [ ] GitHub and Vercel configured

@@ -9,6 +9,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# CLI: prefer dist/entry.js (VPS/build), fallback to moltbot.mjs
+CLI="${REPO_ROOT}/dist/entry.js"
+[[ -f "$CLI" ]] || CLI="${REPO_ROOT}/moltbot.mjs"
+
 # Validate the latest coordinator decision before triggering the CEO.
 # This fails fast when the coordinator output is missing/invalid.
 DECISION_JSON="$(node "$REPO_ROOT/scripts/parse-coordinator-decision.mjs" --agent coordinator 2>/dev/null || true)"
@@ -37,7 +41,7 @@ PROVISIONING PROTOCOL (apply to each provisioningNeeds item):
 - Attempt autonomously first:
   - Use browser to sign up / login / create API keys
   - Use email tooling for email verification when possible
-  - Store resulting secrets in config env vars (preferred): node moltbot.mjs config set env.vars.<KEY>="<value>"
+  - Store resulting secrets in config env vars (preferred): node moltbot.mjs config set env.vars.<KEY>=\"<value>\"
   - Smoke-test access via a deterministic CLI/API command
 - If blocked by CAPTCHA / SMS / KYC / 2FA push / billing details:
   - Use request_human (category=access|critical|blocked) with exact steps + current URL
@@ -112,7 +116,7 @@ BEGIN EXECUTION."
 
 # Send to CEO agent
 cd "$REPO_ROOT"
-node moltbot.mjs agent --agent ceo --message "$PROMPT" > /dev/null 2>&1
+node "$CLI" agent --agent ceo --message "$PROMPT" > /dev/null 2>&1
 
 echo "[$(date)] CEO implementation triggered successfully" >&2
 echo "[$(date)] CEO is reading agent:coordinator:main for board decision" >&2

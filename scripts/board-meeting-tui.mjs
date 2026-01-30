@@ -157,6 +157,13 @@ function clearAndHome() {
   process.stdout.write(`${ESC}[2J${ESC}[H`);
 }
 
+const ALT_SCREEN_ON = "\x1b[?1049h";
+const ALT_SCREEN_OFF = "\x1b[?1049l";
+
+function useAlternateScreen(use) {
+  process.stdout.write(use ? ALT_SCREEN_ON : ALT_SCREEN_OFF);
+}
+
 function getLastMessage(agentId) {
   try {
     const out = execSync(
@@ -217,11 +224,19 @@ function preview(text) {
   return one.slice(0, PREVIEW_LEN - 1) + "…";
 }
 
-const STATUS_WIDTH = 10;
 
 function stripAnsi(str) {
   return str.replace(/\x1b\[[\d;]*m/g, "");
 }
+
+/** Pad string to visible width (ignores ANSI codes) so box borders align. */
+function padToVisible(str, width) {
+  const raw = stripAnsi(str);
+  if (raw.length >= width) return str;
+  return str + " ".repeat(width - raw.length);
+}
+
+const COL_STATUS_VISIBLE = 12;
 
 function statusStyled(status) {
   const raw =
@@ -230,7 +245,7 @@ function statusStyled(status) {
       : status === "done"
         ? "✓ done"
         : "— waiting";
-  const padded = raw.padEnd(STATUS_WIDTH);
+  const padded = raw.padEnd(COL_STATUS_VISIBLE);
   if (status === "running") return `${s.cyanBold}${padded}${s.reset}`;
   if (status === "done") return `${s.greenBold}${padded}${s.reset}`;
   return `${s.grayDim}${padded}${s.reset}`;
@@ -292,24 +307,29 @@ function redraw(state) {
   process.stdout.write(`${s.gray}${side}${" ".repeat(TABLE_WIDTH - 2)}${side}${s.reset}\n`);
   process.stdout.write(`${s.gray}${bottom}${s.reset}\n\n`);
 
-  // ─── Discussion table ───────────────────────────────────────────────────
-  const colAgent = 16; // "Innovation Lead" fits
-  const colStatus = STATUS_WIDTH + 2;
-  const colPreview = TABLE_WIDTH - colAgent - colStatus - 2 - 4; // sides + spaces
+  // ─── Discussion table (fixed widths so borders align; pad to visible width) ─
+  const colAgent = 16;
+  const colStatus = COL_STATUS_VISIBLE;
+  const colPreview = TABLE_WIDTH - 2 - 1 - colAgent - 1 - colStatus - 1 - 1; // 44
 
   process.stdout.write(`${s.gray}  ╭${"─".repeat(colAgent)}┬${"─".repeat(colStatus)}┬${"─".repeat(colPreview)}╮${s.reset}\n`);
-  process.stdout.write(`${s.gray}  │${s.reset} ${s.dim}Agent${s.reset}${" ".repeat(colAgent - 5)}${s.gray}│${s.reset} ${s.dim}Status${s.reset}${" ".repeat(colStatus - 6)}${s.gray}│${s.reset} ${s.dim}Preview${s.reset}${" ".repeat(Math.max(0, colPreview - 7))}${s.gray}│${s.reset}\n`);
+  process.stdout.write(
+    `${s.gray}  │${s.reset}${padToVisible(`${s.dim}Agent${s.reset}`, colAgent)}${s.gray}│${s.reset}${padToVisible(`${s.dim}Status${s.reset}`, colStatus)}${s.gray}│${s.reset}${padToVisible(`${s.dim}Preview${s.reset}`, colPreview)}${s.gray}│${s.reset}\n`,
+  );
   process.stdout.write(`${s.gray}  ├${"─".repeat(colAgent)}┼${"─".repeat(colStatus)}┼${"─".repeat(colPreview)}┤${s.reset}\n`);
 
   for (const id of allAgents) {
     const name = ROLE_NAMES[id] ?? id;
     const entry = state.agents[id] ?? { status: "waiting", lastMessage: "" };
     const isCurrent = state.currentAgent === id;
-    const nameCell = (isCurrent ? `${s.cyanBold}${name}${s.reset}` : name).padEnd(colAgent - 2);
-    const statusCell = statusStyled(entry.status);
-    const prev = preview(entry.lastMessage).slice(0, colPreview - 2);
-    const prevPadded = prev.padEnd(colPreview - 2);
-    process.stdout.write(`${s.gray}  │${s.reset} ${nameCell}${s.gray}│${s.reset} ${statusCell}${s.gray}│${s.reset} ${s.grayDim}${prevPadded}${s.reset}${s.gray}│${s.reset}\n`);
+    const nameCell = padToVisible(
+      isCurrent ? `${s.cyanBold}${name}${s.reset}` : name,
+      colAgent,
+    );
+    const statusCell = padToVisible(statusStyled(entry.status), colStatus);
+    const prevRaw = preview(entry.lastMessage).slice(0, colPreview);
+    const prevCell = padToVisible(`${s.grayDim}${prevRaw}${s.reset}`, colPreview);
+    process.stdout.write(`${s.gray}  │${s.reset}${nameCell}${s.gray}│${s.reset}${statusCell}${s.gray}│${s.reset}${prevCell}${s.gray}│${s.reset}\n`);
   }
 
   process.stdout.write(`${s.gray}  ╰${"─".repeat(colAgent)}┴${"─".repeat(colStatus)}┴${"─".repeat(colPreview)}╯${s.reset}\n`);
@@ -319,11 +339,13 @@ function redraw(state) {
   const tailLog = logLines.slice(-CONVERSATION_LINES);
   if (tailLog.length > 0) {
     process.stdout.write(`\n${s.gray}  ╭${"─".repeat(CONVERSATION_WIDTH)}╮${s.reset}\n`);
-    process.stdout.write(`${s.gray}  │${s.reset} ${s.bold}Conversation${s.reset}${" ".repeat(Math.max(0, CONVERSATION_WIDTH - 12))}${s.gray}│${s.reset}\n`);
+    process.stdout.write(
+      `${s.gray}  │${s.reset}${padToVisible(`${s.bold}Conversation${s.reset}`, CONVERSATION_WIDTH)}${s.gray}│${s.reset}\n`,
+    );
     process.stdout.write(`${s.gray}  ├${"─".repeat(CONVERSATION_WIDTH)}┤${s.reset}\n`);
     for (const line of tailLog) {
       const safe = line.slice(0, CONVERSATION_WIDTH).padEnd(CONVERSATION_WIDTH);
-      process.stdout.write(`${s.gray}  │${s.reset} ${s.grayDim}${safe}${s.reset}${s.gray}│${s.reset}\n`);
+      process.stdout.write(`${s.gray}  │${s.reset}${s.grayDim}${safe}${s.reset}${s.gray}│${s.reset}\n`);
     }
     process.stdout.write(`${s.gray}  ╰${"─".repeat(CONVERSATION_WIDTH)}╯${s.reset}\n`);
   }
@@ -335,11 +357,13 @@ function redraw(state) {
     const wrapped = wrapText(msg || "Waiting for response…", CONVERSATION_WIDTH);
     const tail = wrapped.slice(-CURRENT_OUTPUT_LINES);
     process.stdout.write(`\n${s.gray}  ╭${"─".repeat(CONVERSATION_WIDTH)}╮${s.reset}\n`);
-    process.stdout.write(`${s.gray}  │${s.reset} ${s.cyanBold}Current: ${name}${s.reset}${" ".repeat(Math.max(0, CONVERSATION_WIDTH - 10 - name.length))}${s.gray}│${s.reset}\n`);
+    process.stdout.write(
+      `${s.gray}  │${s.reset}${padToVisible(`${s.cyanBold}Current: ${name}${s.reset}`, CONVERSATION_WIDTH)}${s.gray}│${s.reset}\n`,
+    );
     process.stdout.write(`${s.gray}  ├${"─".repeat(CONVERSATION_WIDTH)}┤${s.reset}\n`);
     for (const line of tail) {
       const safe = line.slice(0, CONVERSATION_WIDTH).padEnd(CONVERSATION_WIDTH);
-      process.stdout.write(`${s.gray}  │${s.reset} ${safe}${s.gray}│${s.reset}\n`);
+      process.stdout.write(`${s.gray}  │${s.reset}${safe}${s.gray}│${s.reset}\n`);
     }
     process.stdout.write(`${s.gray}  ╰${"─".repeat(CONVERSATION_WIDTH)}╯${s.reset}\n`);
   }
@@ -348,6 +372,13 @@ function redraw(state) {
 }
 
 async function main() {
+  useAlternateScreen(true);
+  const exitRestore = () => {
+    useAlternateScreen(false);
+    process.exit(0);
+  };
+  process.on("SIGINT", exitRestore);
+
   const date = new Date().toISOString().slice(0, 10);
   const state = {
     date,
@@ -455,9 +486,11 @@ The CEO will read YOUR decision to execute. Be clear and actionable.`;
   redraw(state);
   process.stdout.write(`\n${s.greenBold}  ✓ Board meeting complete.${s.reset}\n`);
   process.stdout.write(`${s.grayDim}  CEO can read agent:coordinator:main for the decision.${s.reset}\n\n`);
+  useAlternateScreen(false);
 }
 
 main().catch((err) => {
+  useAlternateScreen(false);
   process.stderr.write(String(err) + "\n");
   process.exit(1);
 });
