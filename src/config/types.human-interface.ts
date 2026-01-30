@@ -16,4 +16,24 @@ export interface HumanInterfaceConfig {
     mediumTimeout?: string;
     lowTimeout?: string;
   };
+  agentforge?: {
+    capitalManagement?: {
+      enabled?: boolean;
+      allowedSpendUsd?: number;
+      cardEncryptionKeyId?: string;
+    };
+    stripe?: {
+      enabled?: boolean;
+      secretKey?: string;
+      publicKey?: string;
+    };
+    heartbeat?: {
+      enabled?: boolean;
+      intervalMinutes?: number;
+    };
+    ventureRunloop?: {
+      enabled?: boolean;
+      subagentTimeoutMinutes?: number;
+    };
+  };
 }

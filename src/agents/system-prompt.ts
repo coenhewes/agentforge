@@ -12,6 +12,26 @@ import type { EmbeddedContextFile } from "./pi-embedded-helpers.js";
  */
 export type PromptMode = "full" | "minimal" | "none";
 
+const AGENTFORGE_AGENT_IDS = new Set([
+  "analyst",
+  "cfo",
+  "cto",
+  "cmo",
+  "coo",
+  "risk",
+  "innovation",
+  "coordinator",
+  "ceo",
+]);
+
+function resolveIdentityLine(agentId?: string): string {
+  const normalized = agentId?.trim().toLowerCase();
+  if (normalized && AGENTFORGE_AGENT_IDS.has(normalized)) {
+    return "You are an autonomous business agent running inside AgentForge.";
+  }
+  return "You are a personal assistant running inside Moltbot.";
+}
+
 function buildSkillsSection(params: {
   skillsPrompt?: string;
   isMinimal: boolean;
@@ -321,14 +341,15 @@ export function buildAgentSystemPrompt(params: {
     readToolName,
   });
   const workspaceNotes = (params.workspaceNotes ?? []).map((note) => note.trim()).filter(Boolean);
+  const identityLine = resolveIdentityLine(params.runtimeInfo?.agentId);
 
   // For "none" mode, return just the basic identity line
   if (promptMode === "none") {
-    return "You are a personal assistant running inside Moltbot.";
+    return identityLine;
   }
 
   const lines = [
-    "You are a personal assistant running inside Moltbot.",
+    identityLine,
     "",
     "## Tooling",
     "Tool availability (filtered by policy):",

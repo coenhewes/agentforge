@@ -3,9 +3,9 @@
 ## Problem Statement
 
 Agents need to:
-1. Request human approval for high-stakes decisions
-2. Ask for access to external services (API keys, credentials, etc.)
-3. Escalate when blocked on tasks only humans can do
+1. Request human help for **human-only constraints** (legal/physical requirements)
+2. Ask for **access** to external services (API keys, credentials, billing details)
+3. Escalate when **truly blocked** (no viable path forward)
 4. Report critical issues requiring human intervention
 
 Humans need to:
@@ -150,8 +150,8 @@ interface HumanRequest {
 │                                                               │
 │ 📋 PENDING REQUESTS (5)                                       │
 │ ┌───────────────────────────────────────────────────────┐   │
-│ │ 🟡 Approval - ceo                                       │   │
-│ │ Invest $200 in paid ads? ROI projection: 150%          │   │
+│ │ 🟡 Blocked - ceo                                        │   │
+│ │ Hard blocker >4h: need billing details for ads platform │   │
 │ │ [Approve] [Deny] [Details...]                          │   │
 │ └───────────────────────────────────────────────────────┘   │
 │                                                               │
@@ -195,25 +195,22 @@ if (request.priority === "urgent" || request.priority === "high") {
 
 ### 5. Agent Request Patterns
 
-**Example: CEO requests approval for large spend**
+**Example: CEO requests access (billing/credentials)**
 
 ```typescript
 // In CEO SOUL.md
-// Before spending >$100:
+// When missing access that cannot be obtained autonomously:
 const request = await request_human({
   priority: "high",
-  category: "approval",
-  title: `Approve $${amount} spend on ${description}`,
-  description: `Investment: ${investmentId}
-Budget remaining: $${remaining}
-Expected ROI: ${roi}%
-Risk assessment: ${risk}
-Projected timeline: ${timeline}`,
-  suggestedAction: "Reply 'APPROVED' or 'DENIED' with reason",
-  timeout: "12h"
+  category: "access",
+  title: "Need billing access for paid tool (cannot proceed without it)",
+  description:
+    "Blocked on enabling a paid plan for <tool>. This requires a human to provide billing details or credentials.",
+  suggestedAction: "Provide access/credentials or complete billing setup for <tool>.",
+  timeout: "4h",
 });
 
-// CEO waits for response or continues with smaller spend
+// CEO waits for response, then proceeds
 ```
 
 **Example: Developer requests access**
@@ -234,20 +231,18 @@ Repo: github.com/${org}/${repo}`,
 // Developer waits, then retries or reports blocked
 ```
 
-**Example: Marketing requests human verification**
+**Example: Marketing requests access**
 
 ```typescript
-// Before posting to social media
+// When a platform requires login/verification the agent cannot complete
 const request = await request_human({
   priority: "medium",
-  category: "approval",
-  title: "Review social media post before publishing",
-  description: `Platform: Twitter
-Content: "${tweetContent}"
-Images: [attached]
-Scheduled: ${time}`,
-  suggestedAction: "Reply 'APPROVED' to publish or suggest edits",
-  timeout: "4h"
+  category: "access",
+  title: "Need access to <platform> account",
+  description:
+    "Blocked on publishing/analytics for <platform>. Requires credentials or phone/SMS verification.",
+  suggestedAction: "Log in / complete verification / provide access so marketing can proceed.",
+  timeout: "4h",
 });
 ```
 
@@ -277,16 +272,6 @@ Scheduled: ${time}`,
       "mediumTimeout": "24h",
       "lowTimeout": "72h"
     }
-  },
-  "agents": {
-    "defaults": {
-      "humanApprovalRequired": {
-        "spending": { "threshold": 100, "enabled": true },
-        "externalPosts": { "enabled": true },
-        "apiAccess": { "enabled": true },
-        "codeDeployment": { "enabled": false }
-      }
-    }
   }
 }
 ```
@@ -300,18 +285,11 @@ Scheduled: ${time}`,
 ```markdown
 ## When to Request Human Help
 
-You MUST request human approval for:
-1. 🔴 **Spending >$100** on anything (use request_human with category="approval")
-2. 🔴 **Posting to social media** with company accounts (use category="approval")
-3. 🔴 **Accessing external APIs** you don't have keys for (use category="access")
-4. 🟡 **Deploying to production** (use category="approval")
-5. 🟡 **Legal/compliance decisions** (use category="critical")
-
-You SHOULD request human help when:
-- Stuck on a task for >2 hours
-- Unsure about strategic direction
-- Risk assessment shows high probability of failure
-- Need human-only actions (e.g., credit card payment, ID verification)
+Request human help only for:
+1. 🔴 **Legal/compliance/contracts** requiring human review or signature (category="critical")
+2. 🔴 **Physical-world actions** (ID/bank/notary/SMS verification) (category="critical")
+3. 🔴 **Missing access** (API keys/credentials/billing) you cannot obtain (category="access")
+4. 🟡 **Hard blocker >4 hours** with no viable alternative (category="blocked")
 
 How to request:
 
@@ -321,12 +299,6 @@ request_human --priority urgent --category access \
   --title "Need Stripe API keys" \
   --description "Full context..." \
   --timeout 2h
-
-# For approvals (you can proceed but want validation)
-request_human --priority high --category approval \
-  --title "Approve $200 ad spend" \
-  --description "ROI analysis..." \
-  --timeout 12h
 
 # Alternative: Send to human session
 sessions_send agent:human:main "REQUEST [URGENT]: Need help with X. Context: Y. Timeout: 2h."
@@ -363,4 +335,4 @@ node moltbot.mjs tui --session agent:human:main
 Human: /requests
 Bot: 📋 2 pending requests:
      1. REQ-123 [URGENT] - Need Stripe keys (developer-001)
-     2. REQ-124 [HIGH] - Approve $200 ad spend (ceo)
+     2. REQ-124 [HIGH] - Legal review needed (ceo)

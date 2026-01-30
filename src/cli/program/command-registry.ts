@@ -20,6 +20,9 @@ import { registerOnboardCommand } from "./register.onboard.js";
 import { registerSetupCommand } from "./register.setup.js";
 import { registerStatusHealthSessionsCommands } from "./register.status-health-sessions.js";
 import { registerSubCliCommands } from "./register.subclis.js";
+import { registerVentureCommands } from "./register.venture.js";
+import { registerVentureRunloopCommands } from "./register.venture-runloop.js";
+import { registerInvestmentPortalCli } from "../investment-portal-cli.js";
 import type { ProgramContext } from "./context.js";
 
 type CommandRegisterParams = {
@@ -166,6 +169,18 @@ export const commandRegistry: CommandRegistration[] = [
   {
     id: "browser",
     register: ({ program }) => registerBrowserCli(program),
+  },
+  {
+    id: "venture",
+    register: ({ program }) => registerVentureCommands(program),
+  },
+  {
+    id: "venture-runloop",
+    register: ({ program }) => registerVentureRunloopCommands(program),
+  },
+  {
+    id: "investment-portal",
+    register: ({ program }) => registerInvestmentPortalCli(program),
   },
 ];
 

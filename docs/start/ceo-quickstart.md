@@ -465,7 +465,7 @@ CEO maintains `LEDGER.md` with:
 
 ## Human Interface System
 
-AgentForge agents can request human help when blocked or need approval.
+AgentForge agents request human help only for **human-only constraints** (legal/physical), **missing access** (credentials/billing), or **hard blockers**.
 
 ### How Agents Request Help
 
@@ -525,10 +525,11 @@ curl http://localhost:18789 -X POST -H "Content-Type: application/json" -d '{
 
 ### Request Categories
 
-- **approval** - Spending >$100, public posts, deployments
-- **access** - API keys, credentials, external accounts
-- **blocked** - Stuck on task >2 hours
-- **critical** - Legal, compliance, high-risk decisions
+- **access** - API keys, credentials, external accounts, billing details
+- **blocked** - Hard blocker >4 hours (no viable alternative)
+- **critical** - Legal/compliance/contracts requiring human review/signature; physical-world actions (ID/bank/notary/SMS)
+
+Note: the platform also supports an `approval` category, but AgentForge (aggressive autonomy) does not use it for routine spending, deploys, or public posts.
 
 ### Request Priorities
 

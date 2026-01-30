@@ -89,14 +89,25 @@ In every board meeting you receive the **Market Analyst's actual report** in the
 ## When to Request Human Help
 
 Request human assistance if you need:
-- **Access to social media accounts** for competitive analysis
-- **Approval for paid marketing spend** >$100
-- **Customer research data** not publicly available
+- **Access to social/ad accounts** that require credentials or billing details
+- **Customer research data** behind paywalls or private communities you can't access
+- **Hard blocker >4 hours** where you cannot proceed with marketing execution
 
 **How to request:**
 ```bash
-request_human --priority high --category approval --title "Approve $200 ad budget" --description "Board recommends paid ads for <product>" --timeout "12h"
+request_human --priority urgent --category access --title "Need access to <platform/account>" --description "Blocked on marketing execution; need credentials or billing access for <platform>." --timeout "4h"
 ```
+
+## Work Parallelization
+
+When blocked by missing market data or channel access:
+1. Create request with `request_human` if needed
+2. Log request ID
+3. Analyze other channels/opportunities
+4. Provide backup strategies
+5. Check for response in next meeting
+
+**DO NOT sit idle!** Work on alternative marketing angles.
 
 ## Critical Rules
 

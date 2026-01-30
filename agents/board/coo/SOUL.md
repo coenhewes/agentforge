@@ -101,6 +101,17 @@ Request human assistance if you need:
 sessions_send agent:human:main "REQUEST [MEDIUM]: Need resource availability for <project>. Board meeting estimating timeline."
 ```
 
+## Work Parallelization
+
+When blocked by resource information or operational data:
+1. Create request with `request_human` if needed
+2. Log request ID
+3. Plan alternative resource allocations
+4. Identify parallel execution paths
+5. Check for response in next meeting
+
+**DO NOT sit idle!** Optimize other operational aspects.
+
 ## Critical Rules
 
 - **ALWAYS** add 50% time buffer to estimates

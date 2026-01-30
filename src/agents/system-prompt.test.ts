@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { buildAgentSystemPrompt, buildRuntimeLine } from "./system-prompt.js";
 
 describe("buildAgentSystemPrompt", () => {
+  it("uses AgentForge identity line for AgentForge agents", () => {
+    const prompt = buildAgentSystemPrompt({
+      workspaceDir: "/tmp/clawd",
+      runtimeInfo: {
+        agentId: "ceo",
+      },
+    });
+
+    expect(prompt).toContain("You are an autonomous business agent running inside AgentForge.");
+  });
+
   it("includes owner numbers when provided", () => {
     const prompt = buildAgentSystemPrompt({
       workspaceDir: "/tmp/clawd",

@@ -2,6 +2,8 @@
 
 **Complete guide for deploying AgentForge on a remote Ubuntu VPS**
 
+**Upgrading a live VPS?** See [VPS_UPGRADE_GUIDE.md](VPS_UPGRADE_GUIDE.md) for pulling the latest code, adding Gemini/Codex API keys, and switching to the Gemini 3 Pro + Nano Banana Pro model plan.
+
 ---
 
 ## Prerequisites
@@ -194,6 +196,14 @@ node moltbot.mjs init:agentforge
   2. Start gateway: node moltbot.mjs gateway run --port 18789
   ...
 ```
+
+### What `init:agentforge` Configures (Important)
+
+`init:agentforge` updates your config to support **headless autonomy**:
+
+- Sets `tools.exec.security="full"` and `tools.exec.ask="off"` (so cron/headless runs never wait for exec approvals)
+- Sets `sandbox.mode="off"` for all 9 AgentForge agents (no Docker/sandbox restrictions)
+- Sets `subagents.allowAgents=["*"]` for the CEO (so the CEO can spawn any worker agent id)
 
 ### 4b. Verify Agent Workspaces
 
@@ -1040,7 +1050,7 @@ If the analyst has not run yet, the helper may return empty once; the script ret
 
 ## Step 13: Remote Access from Local Machine
 
-**You can monitor and control AgentForge from your local machine via SSH**
+**You can monitor and control AgentForge from your local machine via SSH.** To have VPS agents use models (e.g. Ollama) running on your Mac, see **13d. Connect Mac Models to VPS (Reverse SSH Tunnel)**.
 
 ### 13a. SSH Tunnel (Recommended for Security)
 
@@ -1090,6 +1100,162 @@ cat ~/agentforge-remote/.moltbot/agents/ceo/LEDGER.md
 # Unmount when done
 umount ~/agentforge-remote
 ```
+
+### 13d. Connect Mac Models to VPS (Reverse SSH Tunnel)
+
+**Use case:** Run models (e.g. Ollama, LM Studio) on your Mac and have the VPS agents use them. The VPS has no GPU or you prefer to keep inference on your Mac.
+
+**How it works:** A **reverse SSH tunnel** makes a port on the VPS forward to a port on your Mac. The gateway and agents on the VPS then call `http://127.0.0.1:PORT` and traffic is sent over SSH to your Mac’s model API.
+
+#### 1. Run the reverse tunnel from your Mac
+
+**Ollama (default port 11434):**
+
+```bash
+# From your Mac — keep this terminal open (or run in tmux/screen)
+ssh -R 11434:localhost:11434 agentforge@YOUR_VPS_IP -N
+
+# -R 11434:localhost:11434 = on the VPS, port 11434 is forwarded to this Mac’s localhost:11434
+# -N = no remote command (tunnel only)
+```
+
+**Replace `YOUR_VPS_IP`** with your VPS hostname or IP. Ensure Ollama is running on your Mac (`ollama serve` or the Ollama app).
+
+**Multiple model APIs (e.g. Ollama + LM Studio):**
+
+```bash
+# Ollama on 11434, LM Studio on 1234
+ssh -R 11434:localhost:11434 -R 1234:localhost:1234 agentforge@YOUR_VPS_IP -N
+```
+
+**With background + reconnect (optional):**
+
+```bash
+# Run in background; survives disconnect if you use -f (background) and -o ServerAliveInterval
+ssh -f -N -o ServerAliveInterval=60 -R 11434:localhost:11434 agentforge@YOUR_VPS_IP
+```
+
+#### 2. Allow reverse forwarding on the VPS (one-time)
+
+Reverse tunnels are usually allowed by default. If the tunnel fails, on the VPS (as root or with sudo):
+
+```bash
+# Check that TCP forwarding is allowed (default: yes)
+sudo grep -E 'AllowTcpForwarding|GatewayPorts' /etc/ssh/sshd_config
+# AllowTcpForwarding yes   (no line or "yes" = allowed)
+# GatewayPorts no          (default; keeps -R bound to localhost on VPS, which is what we want)
+
+# If you had to change anything:
+sudo systemctl reload sshd
+```
+
+#### 3. Point VPS config at the forwarded port
+
+On the VPS, Ollama should be reached at `http://127.0.0.1:11434/v1` (localhost on the VPS = your Mac via the tunnel).
+
+**Note:** Ollama has **no API key**—it runs locally and does not authenticate. Enable it by setting `agents.defaults.model.primary` to an Ollama model (e.g. `ollama/qwen2.5:14b`) or by defining `models.providers.ollama` in config; no fake key is required.
+
+**If you use explicit Ollama provider config**, set `baseUrl` to that address:
+
+```bash
+# On the VPS
+jq '.models.providers.ollama.baseUrl = "http://127.0.0.1:11434/v1"' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+If the provider is created by discovery (e.g. `OLLAMA_API_KEY` and no explicit `models.providers.ollama`), the default base URL is `http://127.0.0.1:11434/v1`. With the tunnel, that’s correct as long as the tunnel is from the Mac to this VPS (so 127.0.0.1 on the VPS is the tunnel to the Mac). If your config instead uses a hostname, set it to `127.0.0.1` for the tunnel:
+
+```bash
+# Verify config (optional)
+cat ~/.clawdbot/moltbot.json | jq '.models.providers.ollama'
+# baseUrl should be http://127.0.0.1:11434/v1 when using the tunnel
+```
+
+Restart the gateway so it picks up config (if you changed it):
+
+```bash
+sudo systemctl restart moltbot-gateway
+```
+
+#### 4. Keep the tunnel up (pick one)
+
+**Option A — Terminal (simple):** Leave the SSH session open; closing it closes the tunnel.
+
+**Option B — tmux/screen on Mac:**
+
+```bash
+# On your Mac
+tmux new -s tunnel
+ssh -R 11434:localhost:11434 agentforge@YOUR_VPS_IP -N
+# Detach: Ctrl+B then D. Reattach later: tmux attach -t tunnel
+```
+
+**Option C — autossh (Mac):**
+
+```bash
+# On your Mac: brew install autossh
+autossh -M 0 -f -N -o "ServerAliveInterval=60" -o "ServerAliveCountMax=3" -R 11434:localhost:11434 agentforge@YOUR_VPS_IP
+# -M 0 disables autossh’s own keepalive; we use ServerAliveInterval instead
+```
+
+**Option D — macOS LaunchAgent (tunnel at login):**
+
+On your Mac, create `~/Library/LaunchAgents/com.agentforge.ollama-tunnel.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.agentforge.ollama-tunnel</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/ssh</string>
+    <string>-N</string>
+    <string>-R</string>
+    <string>11434:localhost:11434</string>
+    <string>agentforge@YOUR_VPS_IP</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardErrorPath</key>
+  <string>/tmp/ollama-tunnel.err</string>
+  <key>StandardOutPath</key>
+  <string>/tmp/ollama-tunnel.out</string>
+</dict>
+</plist>
+```
+
+Replace `YOUR_VPS_IP`. Then:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.agentforge.ollama-tunnel.plist
+# Unload to stop: launchctl unload ~/Library/LaunchAgents/com.agentforge.ollama-tunnel.plist
+```
+
+#### 5. Test from the VPS
+
+With the tunnel running and Ollama running on your Mac:
+
+```bash
+# On the VPS
+curl -s http://127.0.0.1:11434/api/tags
+# Should return JSON list of Ollama models (or empty list if none pulled)
+```
+
+If that works, the gateway and agents can use Ollama on your Mac via the tunnel.
+
+#### Quick reference
+
+| You want                         | Command (run on Mac) |
+|----------------------------------|------------------------|
+| Tunnel Ollama to VPS             | `ssh -R 11434:localhost:11434 agentforge@VPS_IP -N` |
+| Tunnel + extra port (e.g. 1234)  | `ssh -R 11434:localhost:11434 -R 1234:localhost:1234 agentforge@VPS_IP -N` |
+| Tunnel in background             | `ssh -f -N -o ServerAliveInterval=60 -R 11434:localhost:11434 agentforge@VPS_IP` |
+
+**Summary:** Start Ollama (or other model API) on your Mac → run the reverse SSH tunnel from Mac to VPS → set VPS Ollama `baseUrl` to `http://127.0.0.1:11434/v1` if needed → restart gateway on VPS → agents on the VPS use your Mac’s models.
 
 ---
 
@@ -1507,6 +1673,12 @@ node moltbot.mjs tui --session agent:ceo:main
 ```bash
 ~/monitor-agentforge.sh         # Full status report
 cat ~/.moltbot/agents/ceo/LEDGER.md  # Check capital
+```
+
+**Connect Mac models to VPS (reverse tunnel, run on Mac):**
+```bash
+ssh -R 11434:localhost:11434 agentforge@YOUR_VPS_IP -N
+# Then on VPS: baseUrl http://127.0.0.1:11434/v1 for Ollama. See Step 13d.
 ```
 
 ---

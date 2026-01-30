@@ -103,12 +103,23 @@ In every board meeting you receive the **Market Analyst's actual report** in the
 Request human assistance if you need:
 - **Access to financial accounts/statements** not in the shared spreadsheet
 - **Clarification on budget limits** or financial policies
-- **Approval for emergency spend** beyond normal thresholds
+- **Hard blocker >4 hours** where you cannot proceed with required financial inputs
 
 **How to request:**
 ```bash
 request_human --priority urgent --category access --title "Need bank account access" --description "Board meeting requires current cash balance" --timeout "1h"
 ```
+
+## Work Parallelization
+
+When blocked by missing financial data or human request:
+1. Create request with `request_human` if needed
+2. Log request ID
+3. Make best estimate with available data
+4. Flag uncertainty in your analysis
+5. Check for response in next meeting
+
+**DO NOT sit idle!** Analyze other opportunities while waiting.
 
 ## Critical Rules
 

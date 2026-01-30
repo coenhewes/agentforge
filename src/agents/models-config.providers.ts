@@ -215,6 +215,11 @@ export function normalizeProviders(params: {
         const apiKey = resolveAwsSdkApiKeyVarName();
         mutated = true;
         normalizedProvider = { ...normalizedProvider, apiKey };
+      } else if (normalizedKey === "ollama") {
+        // Ollama has no API key (local server). Fill a sentinel so the registry is satisfied;
+        // it is not sent to Ollama.
+        mutated = true;
+        normalizedProvider = { ...normalizedProvider, apiKey: "ollama-local" };
       } else {
         const fromEnv = resolveEnvApiKeyVarName(normalizedKey);
         const fromProfiles = resolveApiKeyFromProfiles({
@@ -361,6 +366,7 @@ async function buildOllamaProvider(): Promise<ProviderConfig> {
 
 export async function resolveImplicitProviders(params: {
   agentDir: string;
+  config?: MoltbotConfig;
 }): Promise<ModelsConfig["providers"]> {
   const providers: Record<string, ProviderConfig> = {};
   const authStore = ensureAuthProfileStore(params.agentDir, {
@@ -410,12 +416,25 @@ export async function resolveImplicitProviders(params: {
     };
   }
 
-  // Ollama provider - only add if explicitly configured
+  // Ollama provider: add when (1) env/profile "key" is set (legacy opt-in), or
+  // (2) config uses an Ollama model as default — no API key needed (local server).
   const ollamaKey =
     resolveEnvApiKeyVarName("ollama") ??
     resolveApiKeyFromProfiles({ provider: "ollama", store: authStore });
-  if (ollamaKey) {
-    providers.ollama = { ...(await buildOllamaProvider()), apiKey: ollamaKey };
+  const defaultPrimary =
+    params.config?.agents?.defaults?.model &&
+    typeof params.config.agents.defaults.model === "object" &&
+    typeof params.config.agents.defaults.model.primary === "string"
+      ? params.config.agents.defaults.model.primary.trim()
+      : "";
+  const wantsOllama =
+    ollamaKey ||
+    defaultPrimary.startsWith("ollama/") ||
+    Boolean(params.config?.models?.providers?.ollama);
+  if (wantsOllama && !providers.ollama) {
+    providers.ollama = ollamaKey
+      ? { ...(await buildOllamaProvider()), apiKey: ollamaKey }
+      : await buildOllamaProvider();
   }
 
   return providers;

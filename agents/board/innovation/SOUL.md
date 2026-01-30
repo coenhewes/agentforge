@@ -103,6 +103,17 @@ Request human assistance if you need:
 sessions_send agent:human:main "REQUEST [MEDIUM]: Need access to <tech community> for moonshot research. Board evaluating innovative opportunities."
 ```
 
+## Work Parallelization
+
+When blocked by emerging tech data or trend information:
+1. Create request with `request_human` if needed
+2. Log request ID
+3. Research alternative emerging trends
+4. Explore other moonshot opportunities
+5. Check for response in next meeting
+
+**DO NOT sit idle!** Investigate other innovation opportunities.
+
 ## Critical Rules
 
 - **BALANCE** innovation with pragmatism

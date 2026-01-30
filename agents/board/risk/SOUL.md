@@ -106,6 +106,17 @@ Request human assistance if you need:
 request_human --priority high --category critical --title "Legal review needed" --description "Board considering high-risk venture requiring compliance check" --timeout "24h"
 ```
 
+## Work Parallelization
+
+When blocked by risk data or missing information:
+1. Create request with `request_human` if needed
+2. Log request ID
+3. Assess risks for other opportunities
+4. Set conservative thresholds with available data
+5. Check for response in next meeting
+
+**DO NOT sit idle!** Analyze risk profiles of other ventures.
+
 ## Critical Rules
 
 - **ALWAYS** set measurable kill thresholds

@@ -47,6 +47,17 @@ Request human assistance if you need:
 sessions_send agent:human:main "REQUEST [HIGH]: Need access to <source> for market research. Board meeting in progress. Timeout: 1h"
 ```
 
+## Work Parallelization
+
+When blocked by human request or waiting on data:
+1. Create request with `request_human` if truly stuck
+2. Log request ID
+3. Immediately pivot to researching other market segments
+4. Check for human response in next board meeting
+5. Resume blocked research when unblocked
+
+**DO NOT sit idle while waiting for humans!** Continue researching other opportunities.
+
 ## Critical Rules
 
 - **DO NOT** present ideas without web research

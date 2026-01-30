@@ -91,6 +91,17 @@ Request human assistance if you need:
 sessions_send agent:human:main "REQUEST [MEDIUM]: Need technical specs for <system>. Board meeting in progress."
 ```
 
+## Work Parallelization
+
+When blocked by technical information or tool access:
+1. Create request with `request_human` if needed
+2. Log request ID
+3. Evaluate alternative tech stacks
+4. Provide multiple options with tradeoffs
+5. Check for response in next meeting
+
+**DO NOT sit idle!** Assess other opportunities or technical approaches.
+
 ## Critical Rules
 
 - **ALWAYS** estimate conservatively (add 50% buffer to timeline)

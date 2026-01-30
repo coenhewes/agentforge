@@ -131,8 +131,11 @@ Think 10x, not 2x. But ground ideas in reality. Present clearly.`,
 };
 
 const PREVIEW_LEN = 48;
-const REDRAW_MS = 2000;
+const REDRAW_MS = 1000;
 const TABLE_WIDTH = 78;
+const CONVERSATION_WIDTH = TABLE_WIDTH - 2;
+const CONVERSATION_LINES = 18;
+const CURRENT_OUTPUT_LINES = 14;
 
 const ESC = "\x1b";
 const s = {
@@ -183,6 +186,30 @@ function runAgent(agentId, message) {
   });
 }
 
+function wrapText(text, width) {
+  if (!text || width < 1) return [];
+  const lines = [];
+  const raw = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  for (const paragraph of raw.split(/\n\n+/)) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    let line = "";
+    for (const w of words) {
+      if (line.length + (line ? 1 : 0) + w.length <= width) {
+        line += (line ? " " : "") + w;
+      } else {
+        if (line) lines.push(line);
+        line = w.slice(0, width);
+        while (line.length >= width) {
+          lines.push(line.slice(0, width));
+          line = line.slice(width);
+        }
+      }
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+
 function preview(text) {
   if (!text) return "";
   const one = text.replace(/\s+/g, " ").trim();
@@ -214,6 +241,18 @@ function redraw(state) {
   if (state.currentAgent) {
     const msg = getLastMessage(state.currentAgent);
     if (msg) state.agents[state.currentAgent].lastMessage = msg;
+  }
+
+  // Append completed agents' full messages to conversation log (once each)
+  const allAgents = ["analyst", ...BOARD_MEMBERS_AFTER_ANALYST, "coordinator"];
+  for (const id of allAgents) {
+    if (state.loggedAgents.has(id)) continue;
+    const entry = state.agents[id];
+    if (!entry || entry.status !== "done" || !entry.lastMessage) continue;
+    const name = ROLE_NAMES[id] ?? id;
+    state.conversationLog.push(`--- ${name} ---`);
+    state.conversationLog.push(...wrapText(entry.lastMessage, CONVERSATION_WIDTH));
+    state.loggedAgents.add(id);
   }
 
   clearAndHome();
@@ -262,7 +301,6 @@ function redraw(state) {
   process.stdout.write(`${s.gray}  │${s.reset} ${s.dim}Agent${s.reset}${" ".repeat(colAgent - 5)}${s.gray}│${s.reset} ${s.dim}Status${s.reset}${" ".repeat(colStatus - 6)}${s.gray}│${s.reset} ${s.dim}Preview${s.reset}${" ".repeat(Math.max(0, colPreview - 7))}${s.gray}│${s.reset}\n`);
   process.stdout.write(`${s.gray}  ├${"─".repeat(colAgent)}┼${"─".repeat(colStatus)}┼${"─".repeat(colPreview)}┤${s.reset}\n`);
 
-  const allAgents = ["analyst", ...BOARD_MEMBERS_AFTER_ANALYST, "coordinator"];
   for (const id of allAgents) {
     const name = ROLE_NAMES[id] ?? id;
     const entry = state.agents[id] ?? { status: "waiting", lastMessage: "" };
@@ -275,7 +313,38 @@ function redraw(state) {
   }
 
   process.stdout.write(`${s.gray}  ╰${"─".repeat(colAgent)}┴${"─".repeat(colStatus)}┴${"─".repeat(colPreview)}╯${s.reset}\n`);
-  process.stdout.write(`\n${s.grayDim}  Updates every 2s · Run in foreground for live view${s.reset}\n`);
+
+  // --- Conversation stream (full discussion as each agent completes) ---
+  const logLines = state.conversationLog;
+  const tailLog = logLines.slice(-CONVERSATION_LINES);
+  if (tailLog.length > 0) {
+    process.stdout.write(`\n${s.gray}  ╭${"─".repeat(CONVERSATION_WIDTH)}╮${s.reset}\n`);
+    process.stdout.write(`${s.gray}  │${s.reset} ${s.bold}Conversation${s.reset}${" ".repeat(Math.max(0, CONVERSATION_WIDTH - 12))}${s.gray}│${s.reset}\n`);
+    process.stdout.write(`${s.gray}  ├${"─".repeat(CONVERSATION_WIDTH)}┤${s.reset}\n`);
+    for (const line of tailLog) {
+      const safe = line.slice(0, CONVERSATION_WIDTH).padEnd(CONVERSATION_WIDTH);
+      process.stdout.write(`${s.gray}  │${s.reset} ${s.grayDim}${safe}${s.reset}${s.gray}│${s.reset}\n`);
+    }
+    process.stdout.write(`${s.gray}  ╰${"─".repeat(CONVERSATION_WIDTH)}╯${s.reset}\n`);
+  }
+
+  // --- Current agent output (live text for the agent currently running) ---
+  if (state.currentAgent) {
+    const msg = (state.agents[state.currentAgent]?.lastMessage ?? "").trim();
+    const name = ROLE_NAMES[state.currentAgent] ?? state.currentAgent;
+    const wrapped = wrapText(msg || "Waiting for response…", CONVERSATION_WIDTH);
+    const tail = wrapped.slice(-CURRENT_OUTPUT_LINES);
+    process.stdout.write(`\n${s.gray}  ╭${"─".repeat(CONVERSATION_WIDTH)}╮${s.reset}\n`);
+    process.stdout.write(`${s.gray}  │${s.reset} ${s.cyanBold}Current: ${name}${s.reset}${" ".repeat(Math.max(0, CONVERSATION_WIDTH - 10 - name.length))}${s.gray}│${s.reset}\n`);
+    process.stdout.write(`${s.gray}  ├${"─".repeat(CONVERSATION_WIDTH)}┤${s.reset}\n`);
+    for (const line of tail) {
+      const safe = line.slice(0, CONVERSATION_WIDTH).padEnd(CONVERSATION_WIDTH);
+      process.stdout.write(`${s.gray}  │${s.reset} ${safe}${s.gray}│${s.reset}\n`);
+    }
+    process.stdout.write(`${s.gray}  ╰${"─".repeat(CONVERSATION_WIDTH)}╯${s.reset}\n`);
+  }
+
+  process.stdout.write(`\n${s.grayDim}  Updates every 1s · Run in foreground for live view${s.reset}\n`);
 }
 
 async function main() {
@@ -284,6 +353,8 @@ async function main() {
     date,
     phase: 1,
     currentAgent: null,
+    conversationLog: [],
+    loggedAgents: new Set(),
     agents: {
       analyst: { status: "waiting", lastMessage: "" },
       cfo: { status: "waiting", lastMessage: "" },

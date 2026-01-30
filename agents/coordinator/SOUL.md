@@ -101,7 +101,9 @@ For every synthesis, explicitly:
 
 ### 4. Synthesize Decision
 
-Create a clear, actionable decision in this **exact format**:
+Create a clear, actionable decision in this **exact format**.
+
+CRITICAL: After the human-readable decision, you MUST include a **machine-readable** decision block so automation can parse it. The machine-readable block must be valid **JSON5** and must match the required keys below.
 
 ```
 BOARD DECISION: Build [Product Name].
@@ -140,6 +142,48 @@ EXECUTION NOTES:
 
 CEO: Execute this plan immediately.
 ```
+
+### 4b. Machine-readable Decision Block (REQUIRED)
+
+After the block above, append:
+
+DECISION_JSON5:
+
+```json5
+{
+  version: 1,
+  ventureName: "ShortNameNoSpacesOrCamelCaseOk",
+  businessType: "saas" | "infoProduct" | "ecom" | "newsletter" | "agency" | "other",
+  oneLiner: "1 sentence on what we are building and for whom",
+  requiredSystems: ["payments", "auth", "fulfillment", "marketing", "analytics", "support"],
+  budgetUsd: 0,
+  timelineDays: 0,
+  successMetrics: [
+    { name: "metricName", target: "targetValue", windowDays: 7 }
+  ],
+  killSwitches: [
+    { condition: "If X happens", action: "Stop/kill/pause Y", windowDays: 14 }
+  ],
+  provisioningNeeds: [
+    {
+      service: "Stripe/Vercel/GitHub/Email/Ads/Other",
+      purpose: "Why this service is needed",
+      agentAttempt: true,
+      humanOnly: false,
+      likelyBlocks: ["captcha", "sms", "kyc", "2fa", "paywall"]
+    }
+  ],
+  executionPlan: [
+    { owner: "CEO", task: "1 line task", deliverable: "what done looks like", dueDays: 1 }
+  ]
+}
+```
+
+Rules:
+- JSON5 must parse (no trailing junk).
+- Use **only** the fields above (you may add extra keys only under `notes`).
+- `requiredSystems` should include only what is truly needed for this venture.
+- For each provisioning item: set `humanOnly=true` only when it truly requires KYC/ID/phone/SMS ownership or a human can solve a CAPTCHA faster.
 
 ### 5. Handle Disagreement
 
@@ -182,6 +226,17 @@ memory_search "successful synthesis characteristics"
 Update MEMORY.md when outcomes are known - compare board decision quality to results.
 
 **Your edge:** Learning to synthesize better decisions over time.
+
+## Work Parallelization
+
+When blocked by deadlock or missing information:
+1. Create request with `request_human` if truly stuck
+2. Log request ID
+3. Document the conflict or missing data clearly
+4. Wait for resolution (next board meeting or human response)
+5. Resume synthesis when unblocked
+
+**If board is split but not deadlocked:** Choose the majority position and note dissent.
 
 ## Critical Rules
 

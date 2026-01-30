@@ -6,7 +6,7 @@ read_when:
 ---
 # Ollama
 
-Ollama is a local LLM runtime that makes it easy to run open-source models on your machine. Moltbot integrates with Ollama's OpenAI-compatible API and can **auto-discover tool-capable models** when you opt in with `OLLAMA_API_KEY` (or an auth profile) and do not define an explicit `models.providers.ollama` entry.
+Ollama is a local LLM runtime that makes it easy to run open-source models on your machine. **Ollama has no API key** — it runs locally and does not authenticate. Moltbot enables the Ollama provider when you reference it in config; no fake key is required.
 
 ## Quick start
 
@@ -22,15 +22,41 @@ ollama pull qwen2.5-coder:32b
 ollama pull deepseek-r1:32b
 ```
 
-3) Enable Ollama for Moltbot (any value works; Ollama doesn't require a real key):
+3) Enable Ollama for Moltbot (no API key needed):
 
-```bash
-# Set environment variable
-export OLLAMA_API_KEY="ollama-local"
+**Option A — Set your default model to an Ollama model** (simplest):
 
-# Or configure in your config file
-moltbot config set models.providers.ollama.apiKey "ollama-local"
+```json5
+{
+  agents: {
+    defaults: {
+      model: { primary: "ollama/llama3.3" }
+    }
+  }
+}
 ```
+
+Moltbot will add the Ollama provider and discover models from `http://127.0.0.1:11434`.
+
+**Option B — Define Ollama explicitly** (e.g. custom host/port or tunnel):
+
+```json5
+{
+  models: {
+    providers: {
+      ollama: {
+        baseUrl: "http://127.0.0.1:11434/v1",
+        api: "openai-completions",
+        models: [ { "id": "llama3.3", "name": "Llama 3.3", ... } ]
+      }
+    }
+  }
+}
+```
+
+No `apiKey` is required; Moltbot fills a sentinel internally so the model registry is satisfied.
+
+**Option C — Legacy:** Set `OLLAMA_API_KEY` to any value (e.g. `ollama-local`) to opt in to implicit discovery. Still supported but unnecessary if you use Option A or B.
 
 4) Use Ollama models:
 
@@ -46,7 +72,7 @@ moltbot config set models.providers.ollama.apiKey "ollama-local"
 
 ## Model discovery (implicit provider)
 
-When you set `OLLAMA_API_KEY` (or an auth profile) and **do not** define `models.providers.ollama`, Moltbot discovers models from the local Ollama instance at `http://127.0.0.1:11434`:
+When you reference Ollama (e.g. `agents.defaults.model.primary: "ollama/llama3.3"` or `models.providers.ollama` in config, or `OLLAMA_API_KEY` set) and **do not** define a full `models.providers.ollama` with models, Moltbot discovers models from the local Ollama instance at `http://127.0.0.1:11434`:
 
 - Queries `/api/tags` and `/api/show`
 - Keeps only models that report `tools` capability
@@ -76,13 +102,21 @@ If you set `models.providers.ollama` explicitly, auto-discovery is skipped and y
 
 ## Configuration
 
-### Basic setup (implicit discovery)
+### Basic setup (no API key)
 
-The simplest way to enable Ollama is via environment variable:
+The simplest way is to set your default model to an Ollama model in config; no environment variable or API key is needed:
 
-```bash
-export OLLAMA_API_KEY="ollama-local"
+```json5
+{
+  agents: {
+    defaults: {
+      model: { primary: "ollama/llama3.3" }
+    }
+  }
+}
 ```
+
+Alternatively, set `OLLAMA_API_KEY` to any value to opt in to implicit discovery (legacy).
 
 ### Explicit setup (manual models)
 

@@ -102,10 +102,9 @@ AgentForge is a **Board of Directors + CEO system** powered by AI agents that:
 - Accuracy improves over time
 
 ### 🤝 Human Oversight
-- Agents request approval for spending >$100
-- Agents request access to APIs/credentials
-- Humans respond via TUI or API
-- Full audit trail of decisions
+- Agents request human help only for human-only constraints (legal/physical) and true blockers (missing access / hard blocker)
+- Humans respond via TUI or API when needed
+- Full audit trail of requests and responses
 
 ### 💰 Financial Tracking
 - Real-time spend monitoring
@@ -146,6 +145,9 @@ node moltbot.mjs init:agentforge
 # ✅ Sets gateway.mode=local
 # ✅ Enables agent-to-agent messaging
 # ✅ Configures budgets
+# ✅ Sets tools.exec.security=full and tools.exec.ask=off (no approval prompts in cron/headless runs)
+# ✅ Disables sandboxing for AgentForge agents (sandbox.mode=off)
+# ✅ Allows CEO to spawn any worker agent id (subagents.allowAgents=["*"])
 # ✅ Creates cron templates
 
 # 4. Set AI provider
@@ -208,10 +210,10 @@ crontab -e
 ### When Agents Need Help
 
 Agents automatically request human help for:
-- 🔴 Spending >$100
-- 🔴 API keys/credentials
-- 🔴 Legal/compliance decisions
-- 🟡 Stuck on task >2 hours
+- 🔴 Legal/compliance/contracts requiring human review or signature
+- 🔴 Physical-world actions (ID verification, bank account opening, notarization, phone/SMS verification)
+- 🔴 Missing access (API keys, credentials, billing details)
+- 🟡 Hard blocker >4 hours (no viable alternative)
 
 ### How to Respond
 
@@ -457,7 +459,7 @@ crontab -e
 A: Yes. All components tested, builds clean, architecture verified.
 
 **Q: How much human intervention?**
-A: Optional. Agents request approval for >$100 spend and API access. Otherwise autonomous.
+A: Optional. Agents only request human help for legal/physical constraints, missing access (credentials/billing), or hard blockers (>4h). Otherwise autonomous.
 
 **Q: How does it get smarter?**
 A: Tracks every prediction vs actual, weekly reflection, monthly meta-analysis. Memory accumulates forever.
