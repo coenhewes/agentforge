@@ -29,6 +29,8 @@ export type ResolvedBrowserConfig = {
   noSandbox: boolean;
   attachOnly: boolean;
   defaultProfile: string;
+  /** Resolved request timeout (ms); clamp 5k–60k, default 10k. */
+  requestTimeoutMs: number;
   profiles: Record<string, BrowserProfileConfig>;
 };
 
@@ -66,6 +68,17 @@ function normalizeHexColor(raw: string | undefined) {
 function normalizeTimeoutMs(raw: number | undefined, fallback: number) {
   const value = typeof raw === "number" && Number.isFinite(raw) ? Math.floor(raw) : fallback;
   return value < 0 ? fallback : value;
+}
+
+const REQUEST_TIMEOUT_MS_MIN = 5_000;
+const REQUEST_TIMEOUT_MS_MAX = 60_000;
+const REQUEST_TIMEOUT_MS_DEFAULT = 10_000;
+
+function resolveRequestTimeoutMs(raw: number | undefined): number {
+  const value = normalizeTimeoutMs(raw, REQUEST_TIMEOUT_MS_DEFAULT);
+  if (value < REQUEST_TIMEOUT_MS_MIN) return REQUEST_TIMEOUT_MS_MIN;
+  if (value > REQUEST_TIMEOUT_MS_MAX) return REQUEST_TIMEOUT_MS_MAX;
+  return value;
 }
 
 export function parseHttpUrl(raw: string, label: string) {
@@ -198,6 +211,8 @@ export function resolveBrowserConfig(
       ? DEFAULT_BROWSER_DEFAULT_PROFILE_NAME
       : DEFAULT_CLAWD_BROWSER_PROFILE_NAME);
 
+  const requestTimeoutMs = resolveRequestTimeoutMs(cfg?.requestTimeoutMs);
+
   return {
     enabled,
     evaluateEnabled,
@@ -213,6 +228,7 @@ export function resolveBrowserConfig(
     noSandbox,
     attachOnly,
     defaultProfile,
+    requestTimeoutMs,
     profiles,
   };
 }

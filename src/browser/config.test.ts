@@ -22,6 +22,7 @@ describe("browser config", () => {
     expect(clawd?.cdpUrl).toBe("http://127.0.0.1:18800");
     expect(resolved.remoteCdpTimeoutMs).toBe(1500);
     expect(resolved.remoteCdpHandshakeTimeoutMs).toBe(3000);
+    expect(resolved.requestTimeoutMs).toBe(10_000);
   });
 
   it("derives default ports from CLAWDBOT_GATEWAY_PORT when unset", () => {

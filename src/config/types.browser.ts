@@ -34,6 +34,8 @@ export type BrowserConfig = {
   attachOnly?: boolean;
   /** Default profile to use when profile param is omitted. Default: "chrome" */
   defaultProfile?: string;
+  /** Timeout (ms) for browser control requests (start/dispatch). Default used by fetch when starting/using control service. Clamped 5k–60k. */
+  requestTimeoutMs?: number;
   /** Named browser profiles with explicit CDP ports or URLs. */
   profiles?: Record<string, BrowserProfileConfig>;
   /** Default snapshot options (applied by the browser tool/CLI when unset). */

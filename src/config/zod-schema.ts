@@ -144,6 +144,7 @@ export const MoltbotSchema = z
         noSandbox: z.boolean().optional(),
         attachOnly: z.boolean().optional(),
         defaultProfile: z.string().optional(),
+        requestTimeoutMs: z.number().int().min(5000).max(60000).optional(),
         snapshotDefaults: BrowserSnapshotDefaultsSchema,
         profiles: z
           .record(

@@ -60,6 +60,7 @@ function buildSandboxBrowserResolvedConfig(params: {
     noSandbox: false,
     attachOnly: true,
     defaultProfile: "clawd",
+    requestTimeoutMs: 10_000,
     profiles: {
       clawd: { cdpPort: params.cdpPort, color: DEFAULT_CLAWD_BROWSER_COLOR },
     },

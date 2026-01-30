@@ -156,6 +156,15 @@ This happens when the agent uses **browser act** with action **fill** but the `f
 
 Note: The browser control service runs only where the gateway runs (e.g. Mac with Moltbot.app and Chrome + Browser Relay extension). On a VPS, `browser.open`/`snapshot`/`act` only work if a browser-capable **node** is connected; otherwise use manual sign-up and credentials.
 
+### Browser automation intermittent
+
+If you see **"Can't reach the clawd browser control service (timed out...)"** or similar:
+
+- Ensure the gateway is running before browser automation (start Moltbot.app or `moltbot gateway run`).
+- On Linux, prefer Google Chrome over snap Chromium when possible; see [browser Linux troubleshooting](docs/tools/browser-linux-troubleshooting.md) if present.
+- Optional: set `browser.requestTimeoutMs` (e.g. `15000`) in config if the first request often times out (default 10s, clamped 5–60s).
+- If the default profile (e.g. clawd) is unreachable, the client will try the other profile (e.g. chrome extension relay) once before failing.
+
 ### 429 RESOURCE_EXHAUSTED but fallback not trying OpenAI
 
 If you still see only Gemini in the footer and 429 errors after setting `agents.defaults.model.fallbacks` and deploying the fallback fix:
