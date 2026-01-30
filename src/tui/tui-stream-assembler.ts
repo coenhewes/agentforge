@@ -64,6 +64,7 @@ export class TuiStreamAssembler {
     const finalText = resolveFinalAssistantText({
       finalText: finalComposed,
       streamedText: state.displayText,
+      message,
     });
 
     this.runs.delete(runId);

@@ -15,4 +15,18 @@ describe("resolveFinalAssistantText", () => {
       }),
     ).toBe("All done");
   });
+
+  it("shows (tool calls only) when both texts empty and message has tool calls", () => {
+    expect(
+      resolveFinalAssistantText({
+        finalText: "",
+        streamedText: "",
+        message: { content: [{ type: "toolCall", id: "tc-1", name: "browser" }] },
+      }),
+    ).toBe("(tool calls only)");
+  });
+
+  it("shows (no output) when both texts empty and no message", () => {
+    expect(resolveFinalAssistantText({ finalText: "", streamedText: "" })).toBe("(no output)");
+  });
 });

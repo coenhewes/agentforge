@@ -1,14 +1,35 @@
 import { formatTokenCount } from "../utils/usage-format.js";
 import { formatRawAssistantErrorForUi } from "../agents/pi-embedded-helpers.js";
 
+/** True if the assistant message contains tool calls (no text content). */
+function messageHasToolCalls(message: unknown): boolean {
+  if (!message || typeof message !== "object") return false;
+  const rec = message as Record<string, unknown>;
+  const toolCalls = rec.tool_calls ?? rec.toolCalls;
+  if (Array.isArray(toolCalls) && toolCalls.length > 0) return true;
+  const content = rec.content;
+  if (!Array.isArray(content)) return false;
+  for (const block of content) {
+    if (!block || typeof block !== "object") continue;
+    const type = (block as Record<string, unknown>).type;
+    if (type === "toolCall" || type === "toolUse" || type === "functionCall") return true;
+  }
+  return false;
+}
+
 export function resolveFinalAssistantText(params: {
   finalText?: string | null;
   streamedText?: string | null;
+  /** When both texts are empty, if message has tool calls we show "(tool calls only)". */
+  message?: unknown;
 }) {
   const finalText = params.finalText ?? "";
   if (finalText.trim()) return finalText;
   const streamedText = params.streamedText ?? "";
   if (streamedText.trim()) return streamedText;
+  if (params.message !== undefined && messageHasToolCalls(params.message)) {
+    return "(tool calls only)";
+  }
   return "(no output)";
 }
 

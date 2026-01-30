@@ -174,7 +174,13 @@ export function registerBrowserAgentActRoutes(
               return parsed;
             })
             .filter((field): field is BrowserFormField => field !== null);
-          if (!fields.length) return jsonError(res, 400, "fields are required");
+          if (!fields.length) {
+            return jsonError(
+              res,
+              400,
+              "fields are required for fill: non-empty array of { ref: string, type: string, value?: string|number|boolean } (each element must have ref and type)",
+            );
+          }
           const timeoutMs = toNumber(body.timeoutMs);
           await pw.fillFormViaPlaywright({
             cdpUrl,

@@ -299,6 +299,16 @@ node dist/entry.js setup:github
 
 Follow prompts (username, email, personal access token with `repo`, `workflow`, `user:email`). Or set `git config` and `GITHUB_TOKEN` manually.
 
+**GitHub CLI (gh):** Agents run `gh repo create` and `gh` for pushing. Install the CLI so the gateway process can use it (systemd uses a minimal PATH; install to a path the service sees, e.g. `/usr/bin` or `/usr/local/bin`):
+
+```bash
+# Ubuntu 22+: install gh from system package manager (in PATH for systemd)
+sudo apt update && sudo apt install -y gh
+gh auth status
+```
+
+If your distro doesn’t have `gh` in apt, install from [GitHub CLI releases](https://github.com/cli/cli/releases) and put the binary in `/usr/local/bin`. If `gh` is only in your user PATH (e.g. `~/.local/bin`), add `PATH="/home/agentforge/.local/bin:$PATH"` to `~/.agentforge-env` and restart the gateway.
+
 ---
 
 ## Step 5f: Vercel (required)
@@ -586,8 +596,9 @@ crontab -l
 ### Gateway
 
 ```bash
-curl http://localhost:18789/health
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:18789/
 ```
+Expect: `200` or `302`. For full health JSON use: `node dist/entry.js gateway call health`.
 
 ### CEO
 
@@ -663,6 +674,30 @@ node dist/entry.js portal
 
 ## Step 12: Monitor and Maintain
 
+### Tracking business progress
+
+Use these to see how the CEO and workers are building the business:
+
+| What | How |
+|------|-----|
+| **Investments and capital** | `cat ~/.moltbot/agents/ceo/LEDGER.md` — CEO-maintained list of ventures, spend, revenue, status (active/killed). |
+| **CEO status reports** | `tail -f /tmp/agentforge-heartbeat.log` — Every 30 min the CEO writes a short report: status (RED/GREEN), provisioning, workers, next steps. |
+| **Investment Portal (TUI)** | `node dist/entry.js portal` — Ventures, capital, workers, logs, settings. Run `node scripts/sync-ledger.mjs` first so portal data matches LEDGER. |
+| **CEO conversation** | `node dist/entry.js tui --session agent:ceo:main` — Latest CEO messages, decisions, and worker spawns. |
+| **Worker sessions** | If the CEO spawned workers (e.g. dev-firewall), list sessions with `node dist/entry.js gateway call sessions.list --params '{}'` and open with `node dist/entry.js tui --session agent:ceo:subagent:<id>` (or the worker key from the list). |
+| **Coordinator / board** | `node dist/entry.js tui --session agent:coordinator:main` — Current board decision; `agent:cfo:main`, etc. for individual board members. |
+
+**Quick snapshot:** `cat ~/.moltbot/agents/ceo/LEDGER.md` and the last block of `tail -n 80 /tmp/agentforge-heartbeat.log` give you investments plus the latest CEO report.
+
+**No active workers?** Workers only exist after the CEO spawns them via `sessions_spawn` (during `ceo-implement.sh` or a heartbeat). They show up as **CEO subagent sessions** (e.g. `agent:ceo:subagent:<id>`), not as separate agents in the list. If you see none:
+
+1. **Check whether the CEO ever spawned any** — In the CEO session (`tui --session agent:ceo:main`) or heartbeat log, look for “sessions_spawn” or “dev-…”, “mkt-…” worker names. If the CEO was blocked (e.g. provisioning, gateway timeouts) before or after spawning, it may not have spawned yet or workers may have become unreachable.
+2. **List subagent sessions** — `node dist/entry.js gateway call sessions.list --params '{}'` and look for keys like `agent:ceo:subagent:…` under the CEO. If there are none, the CEO has not successfully spawned workers yet.
+3. **Trigger a fresh run** — Now that provisioning is unblocked (e.g. Cloudflare token), run `./scripts/ceo-implement.sh >> /tmp/agentforge-ceo.log 2>&1` again so the CEO can read the board decision and spawn workers. Then run a heartbeat: `./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1` and check the log for worker status.
+4. **Ask the CEO to spawn workers** — You can nudge: `node dist/entry.js agent --agent ceo --message "Read LEDGER and the coordinator decision. Spawn any workers needed for active investments and report back."`
+
+---
+
 **Logs:**
 
 - Gateway: `sudo journalctl -u agentforge-gateway -f`
@@ -728,7 +763,7 @@ If it still fails, see Troubleshooting (“Build killed or fails (OOM / CPU)”)
 
 ```bash
 ssh -L 18789:localhost:18789 agentforge@YOUR_VPS_IP
-# Then curl http://localhost:18789/health on local
+# Then curl -s -o /dev/null -w "%{http_code}" http://localhost:18789/ on local (expect 200 or 302)
 ```
 
 **Remote commands:**
@@ -759,6 +794,62 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 
 ---
 
+## Testing the full system
+
+Run these on the VPS (from `~/agentforge`) to confirm everything works. All commands assume the gateway is running (systemd).
+
+**1. Config complete**
+
+```bash
+jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 9 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete" end' ~/.clawdbot/moltbot.json
+```
+
+Expect: `"Config OK"`.
+
+**2. Gateway responding**
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:18789/
+```
+
+Expect: `200` or `302` (root may serve control UI). If connection refused or non-2xx, check: `sudo systemctl status agentforge-gateway`, `ss -ltnp | grep 18789`.  
+Note: Health JSON is only available via WebSocket (step 3); there is no HTTP `/health` JSON endpoint.
+
+**3. Gateway auth (WebSocket)**
+
+```bash
+node dist/entry.js gateway call health
+```
+
+Expect: JSON health summary. If auth fails, check `gateway.auth.token` in config (Step 5h2).
+
+**4. Agent run (CEO short message)**
+
+```bash
+node dist/entry.js agent --agent ceo --message "Reply with one sentence: system check OK."
+```
+
+Expect: CEO responds (may take 30–60 s). Confirms gateway, AI provider, and agent routing.
+
+**5. Human requests (optional)**
+
+```bash
+node dist/entry.js gateway call human.requests.list --params '{}'
+```
+
+Expect: `{"requests":[...]}`. If you have a pending REQ-XXX, respond with:  
+`node dist/entry.js gateway call human.requests.respond --params '{"requestId":"REQ-XXX","action":"approved","response":"Done."}'`
+
+**6. Full pipeline (optional)**
+
+- Board meeting: `./scripts/board-meeting.sh --tui` (or without TUI), then check coordinator: `node dist/entry.js tui --session agent:coordinator:main` and confirm latest message has `DECISION_JSON5`.
+- CEO run: `./scripts/ceo-implement.sh >> /tmp/agentforge-ceo.log 2>&1` then `tail -f /tmp/agentforge-ceo.log`.
+- Heartbeat: `./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1` then check the report in the log.
+
+If any step fails, see Troubleshooting below.
+
+---
+
 ## Troubleshooting
 
 **"Cannot find module moltbot.mjs":** Use `node dist/entry.js` for all commands (e.g. `node dist/entry.js init:agentforge`). The guide uses `dist/entry.js`; ensure `pnpm build` has been run.
@@ -778,6 +869,12 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 **Gateway won’t start:** `sudo journalctl -u agentforge-gateway -n 100`. Check port 18789, config JSON, and `pnpm build`.
 
 **Agent not responding:** Confirm gateway is up and API keys in `~/.clawdbot/moltbot.json`. Test: `node dist/entry.js agent --agent ceo --message "test"`.
+
+**`gh: command not found` when agents create repos:** The GitHub CLI must be installed and on the PATH used by the gateway (systemd does not load your shell PATH). Install `gh` (see Step 5e “GitHub CLI (gh)”) and, if needed, add `PATH=...` to `~/.agentforge-env` so the gateway service can find it. Restart the gateway after installing or changing PATH.
+
+**Wrangler / Cloudflare Workers “register workers.dev subdomain” prompt:** In non-interactive runs, wrangler may fail with “Would you like to register a workers.dev subdomain now?” Register once in the Cloudflare dashboard: open `https://dash.cloudflare.com/<ACCOUNT_ID>/workers/onboarding` (use your account ID, e.g. from `env.vars.CLOUDFLARE_ACCOUNT_ID`) and complete the workers.dev subdomain setup. After that, `wrangler deploy` can succeed without the prompt.
+
+**Worker unreachable / messaging times out:** When the CEO (or heartbeat) tries to message a worker (e.g. dev-firewall) via `sessions_send`, the request can time out (often after 30 s). Common causes: gateway busy with other runs, slow model API, or the worker run taking longer than the send timeout. What to do: (1) **Restart the gateway** to clear stuck state and free resources: `sudo systemctl restart agentforge-gateway`. (2) **Check gateway logs** for errors when the timeout occurs: `sudo journalctl -u agentforge-gateway -n 200 --no-pager`. (3) **File fallback:** The CEO can write instructions into the venture dir (e.g. `CEO_INSTRUCTIONS.md`); the developer agent will pick them up on its next run. (4) **Re-spawn if needed:** If the worker session is stuck and never responds, you can ask the CEO to spawn a fresh worker for that venture (context in the old session is lost but work can continue).
 
 **Board meeting fails:** See `tail -100 /tmp/agentforge-board.log`, run `./scripts/board-meeting.sh` manually, increase timeout in config if needed (see VPS_CONFIG_UPDATE.md).
 
@@ -813,6 +910,8 @@ tar -czf agentforge-backup-$(date +%Y%m%d).tar.gz \
 
 | Task | Command |
 |------|--------|
+| **Test full system** | See section **Testing the full system** (config → health → gateway call → agent → optional pipeline) |
+| **Track business progress** | See **Step 12 → Tracking business progress** (LEDGER, heartbeat log, portal, CEO/worker sessions) |
 | Gateway | `sudo systemctl start/stop/restart agentforge-gateway` |
 | Logs | `sudo journalctl -u agentforge-gateway -f`, `tail -f /tmp/agentforge-*.log` |
 | CEO | `node dist/entry.js agent --agent ceo --message "…"` |
@@ -857,6 +956,7 @@ tar -czf agentforge-backup-$(date +%Y%m%d).tar.gz \
 
 ## Support
 
+- **Keeping it running:** [KEEP_IT_RUNNING.md](KEEP_IT_RUNNING.md) — what to check, when to act, quick commands.
 - `README_AGENTFORGE.md`, `docs/start/ceo-quickstart.md`
 - Upgrade path: [VPS_UPGRADE_GUIDE.md](VPS_UPGRADE_GUIDE.md)
 - Two-way board flow: [VPS_UPGRADE_BOARD_TWO_WAY.md](VPS_UPGRADE_BOARD_TWO_WAY.md)
