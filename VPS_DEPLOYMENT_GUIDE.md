@@ -677,6 +677,14 @@ node dist/entry.js portal
 - `cat ~/.moltbot/agents/ceo/LEDGER.md`
 - Human requests: `ls ~/.moltbot/human-requests/`
 
+**Respond to a human request (e.g. REQ-XXXXX approved):** The gateway accepts `human.requests.respond` only over WebSocket, not HTTP. Use the CLI (from repo root, with gateway running):
+
+```bash
+node dist/entry.js gateway call human.requests.respond --params '{"requestId":"REQ-XXXXX","action":"approved","response":"Your message (e.g. Token set in config)."}'
+```
+
+Replace `REQ-XXXXX` and the response text. To verify: `cat ~/.moltbot/human-requests/*REQ-XXXXX* | jq '{ status, response, respondedAt }'` should show `"status": "approved"`.
+
 **Restart gateway:**
 
 ```bash
@@ -755,7 +763,9 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 
 **"Cannot find module moltbot.mjs":** Use `node dist/entry.js` for all commands (e.g. `node dist/entry.js init:agentforge`). The guide uses `dist/entry.js`; ensure `pnpm build` has been run.
 
-**ceo-implement.sh: line 40: value: No such file or directory:** The script on the VPS is an old version. The prompt contains double-quote characters; when the script runs `--message "$PROMPT"`, the first `"` inside the prompt closes the argument and bash treats the next word (e.g. `<value>`) as a file redirection. (1) Update the repo and rebuild (Step 12 “Update code”); the fixed script uses no double-quotes inside the prompt. (2) If pull says “Already up to date”, you must replace the script with the fixed version (e.g. copy from your Mac or re-apply the change). A one-line edit is not enough—the prompt has multiple double-quotes (PROVISIONING PROTOCOL and SPAWN WORKERS sections); the repo version removes them all.
+**ceo-implement.sh: line 40: value: No such file or directory:** The script on the VPS is an old version. The prompt contains double-quote characters; when the script runs `--message "$PROMPT"`, the first `"` inside the prompt closes the argument and bash treats the next word (e.g. `<value>`) as a file redirection. (1) Update the repo and rebuild (Step 12 “Update code”); the fixed script uses no double-quotes inside the prompt. If you have unstaged changes to `scripts/ceo-implement.sh` (e.g. from a manual edit), discard them so pull can run: `git restore scripts/ceo-implement.sh`, then `git pull --rebase origin main`. (2) If pull says “Already up to date”, the fix may not be on origin yet—copy the fixed script from your Mac or wait for it to be pushed.
+
+**Human request still pending after curl:** The gateway accepts `human.requests.respond` only over WebSocket, not HTTP. Use: `node dist/entry.js gateway call human.requests.respond --params '{"requestId":"REQ-XXXXX","action":"approved","response":"Your message."}'` (see “Respond to a human request” under Step 12).
 
 **Coordinator decision missing/invalid:** `ceo-implement.sh` requires a valid board decision from the coordinator. Run a board meeting first (Step 10: `./scripts/board-meeting.sh` or `./scripts/board-meeting.sh --tui`), then open `agent:coordinator:main` and ensure the coordinator’s latest response includes a `DECISION_JSON5` block. Only then run `./scripts/ceo-implement.sh`.
 
@@ -850,3 +860,5 @@ tar -czf agentforge-backup-$(date +%Y%m%d).tar.gz \
 - `README_AGENTFORGE.md`, `docs/start/ceo-quickstart.md`
 - Upgrade path: [VPS_UPGRADE_GUIDE.md](VPS_UPGRADE_GUIDE.md)
 - Two-way board flow: [VPS_UPGRADE_BOARD_TWO_WAY.md](VPS_UPGRADE_BOARD_TWO_WAY.md)
+
+

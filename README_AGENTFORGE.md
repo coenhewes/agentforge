@@ -222,21 +222,11 @@ Agents automatically request human help for:
 node moltbot.mjs tui --session agent:human:main
 ```
 
-**Respond in TUI:**
-```
-RESPONSE REQ-ABC123: APPROVED - Keys are sk_live_...
-```
+**Respond in TUI:** Type: `RESPONSE REQ-ABC123: APPROVED - Keys are sk_live_...`
 
-**Or via API:**
+**Or via CLI (recommended; gateway accepts respond only over WebSocket):**
 ```bash
-curl http://localhost:18789 -X POST -d '{
-  "method": "human.requests.respond",
-  "params": {
-    "requestId": "REQ-ABC123",
-    "action": "approved",
-    "response": "Your response here"
-  }
-}'
+node moltbot.mjs gateway call human.requests.respond --params '{"requestId":"REQ-ABC123","action":"approved","response":"Your response here"}'
 ```
 
 ---

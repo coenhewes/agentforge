@@ -21,8 +21,12 @@ if [[ -z "${DECISION_JSON:-}" ]]; then
   exit 1
 fi
 
-# CEO implementation prompt
-PROMPT="CEO Daily Execution - $(date +"%Y-%m-%d")
+# CEO implementation prompt: write to temp file so DECISION_JSON (JSON with quotes) is safe
+CEOPROMPT_FILE="${TMPDIR:-/tmp}/ceo-implement-prompt-$$.txt"
+trap 'rm -f "$CEOPROMPT_FILE"' EXIT
+
+cat > "$CEOPROMPT_FILE" << CEOPROMPT_END
+CEO Daily Execution - $(date +%Y-%m-%d)
 
 Your tasks today:
 
@@ -63,9 +67,9 @@ PROVISIONING PROTOCOL (apply to each provisioningNeeds item):
      Deploy to Vercel when ready.
      
      CRITICAL REPORTING PROTOCOL:
-     - Upon completion: sessions_send agent:ceo:main '\''COMPLETE [YOUR-WORKER-ID]: <summary of what built>'\''
-     - When blocked: sessions_send agent:ceo:main '\''BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX'\''
-     - Daily progress: sessions_send agent:ceo:main '\''PROGRESS [YOUR-WORKER-ID]: <metrics and status>'\''
+     - Upon completion: sessions_send agent:ceo:main "COMPLETE [YOUR-WORKER-ID]: <summary of what built>"
+     - When blocked: sessions_send agent:ceo:main "BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX"
+     - Daily progress: sessions_send agent:ceo:main "PROGRESS [YOUR-WORKER-ID]: <metrics and status>"
      Replace [YOUR-WORKER-ID] with your actual worker identifier.'
    
    - Example: Marketing agent to launch
@@ -76,9 +80,9 @@ PROVISIONING PROTOCOL (apply to each provisioningNeeds item):
      Report metrics daily.
      
      CRITICAL REPORTING PROTOCOL:
-     - Upon completion: sessions_send agent:ceo:main '\''COMPLETE [YOUR-WORKER-ID]: <summary of results>'\''
-     - When blocked: sessions_send agent:ceo:main '\''BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX'\''
-     - Daily progress: sessions_send agent:ceo:main '\''PROGRESS [YOUR-WORKER-ID]: <metrics and status>'\''
+     - Upon completion: sessions_send agent:ceo:main "COMPLETE [YOUR-WORKER-ID]: <summary of results>"
+     - When blocked: sessions_send agent:ceo:main "BLOCKED [YOUR-WORKER-ID]: <blocker description> REQ-XXXXX"
+     - Daily progress: sessions_send agent:ceo:main "PROGRESS [YOUR-WORKER-ID]: <metrics and status>"
      Replace [YOUR-WORKER-ID] with your actual worker identifier.'
    
    - Provide full context from board decision to workers
@@ -112,11 +116,11 @@ REMEMBER:
 - Track every dollar in LEDGER.md
 - Execute first, report later - don't present options and wait
 
-BEGIN EXECUTION."
+BEGIN EXECUTION.
+CEOPROMPT_END
 
-# Send to CEO agent
+# Send to CEO agent (--message-file avoids shell quoting of JSON in DECISION_JSON)
 cd "$REPO_ROOT"
-node "$CLI" agent --agent ceo --message "$PROMPT" > /dev/null 2>&1
-
-echo "[$(date)] CEO implementation triggered successfully" >&2
-echo "[$(date)] CEO is reading agent:coordinator:main for board decision" >&2
+echo "[$(date)] CEO run starting (agent reading coordinator decision)..." >&2
+node "$CLI" agent --agent ceo --message-file "$CEOPROMPT_FILE"
+echo "[$(date)] CEO run finished" >&2

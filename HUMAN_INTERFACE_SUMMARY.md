@@ -126,26 +126,18 @@ sessions_send agent:human:main "REQUEST [URGENT]: Need Stripe keys for checkout.
 # Via TUI
 node moltbot.mjs tui --session agent:human:main
 
-# Via API
-curl http://localhost:18789 -X POST -d '{"method":"human.requests.list"}'
+# Via CLI (gateway call uses WebSocket; HTTP curl does not reach these methods)
+node moltbot.mjs gateway call human.requests.list --params '{}'
 ```
 
-**Respond:**
+**Respond:** The gateway accepts `human.requests.respond` only over WebSocket. Use the CLI:
 
 ```bash
-# Via TUI (in agent:human:main session)
-RESPONSE REQ-ABC123: APPROVED - Keys are sk_live_...
-
-# Via API
-curl http://localhost:18789 -X POST -d '{
-  "method": "human.requests.respond",
-  "params": {
-    "requestId": "REQ-ABC123",
-    "action": "approved",
-    "response": "Keys are sk_live_..."
-  }
-}'
+node moltbot.mjs gateway call human.requests.respond --params '{"requestId":"REQ-ABC123","action":"approved","response":"Keys are sk_live_..."}'
 ```
+
+Or in TUI (in agent:human:main session): `RESPONSE REQ-ABC123: APPROVED - Keys are sk_live_...`  
+Note: The request file on disk is updated when you use the CLI `gateway call` (or control UI); TUI may connect as another agent if `human` is not in agents.list.
 
 ---
 

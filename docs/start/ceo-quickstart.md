@@ -488,40 +488,27 @@ request_human \
 node moltbot.mjs tui --session agent:human:main
 ```
 
-**Via Gateway API:**
+**Via CLI (gateway call uses WebSocket; HTTP curl does not reach these methods):**
 ```bash
 # List all requests
-curl http://localhost:18789 -X POST -H "Content-Type: application/json" -d '{
-  "method": "human.requests.list",
-  "params": {}
-}'
+node moltbot.mjs gateway call human.requests.list --params '{}'
 
 # Get specific request
-curl http://localhost:18789 -X POST -H "Content-Type: application/json" -d '{
-  "method": "human.requests.get",
-  "params": {"requestId": "REQ-XXXXX"}
-}'
+node moltbot.mjs gateway call human.requests.get --params '{"requestId":"REQ-XXXXX"}'
 ```
 
 ### How to Respond
 
-**Via TUI:**
+**Via CLI (recommended):** The gateway accepts `human.requests.respond` only over WebSocket. Use the CLI from repo root:
+
 ```bash
-# In agent:human:main session, type:
-RESPONSE REQ-XXXXX: APPROVED - Keys are sk_live_...
+node moltbot.mjs gateway call human.requests.respond --params '{"requestId":"REQ-XXXXX","action":"approved","response":"Keys are sk_live_..."}'
 ```
 
-**Via Gateway API:**
-```bash
-curl http://localhost:18789 -X POST -H "Content-Type: application/json" -d '{
-  "method": "human.requests.respond",
-  "params": {
-    "requestId": "REQ-XXXXX",
-    "action": "approved",
-    "response": "Keys are sk_live_..."
-  }
-}'
-```
+Replace `REQ-XXXXX` and the response text. Verify with: `cat ~/.moltbot/human-requests/*REQ-XXXXX* | jq '.status, .response'`.
+
+**Via TUI:** Open `agent:human:main` and type: `RESPONSE REQ-XXXXX: APPROVED - Keys are sk_live_...`  
+Note: If your config has no `human` agent, the TUI may connect as another agent; the request file is only updated when you use the CLI `gateway call` above or the control UI.
 
 ### Request Categories
 

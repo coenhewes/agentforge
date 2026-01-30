@@ -323,12 +323,21 @@ sessions_history agent:human:main --limit 5 | grep "RESPONSE.*REQ-[your-id]"
 - Enter optional reason/instructions
 - Request auto-marked as resolved
 
+**Via CLI (recommended):** The gateway accepts `human.requests.respond` only over WebSocket, not HTTP. From repo root:
+
+```bash
+node moltbot.mjs gateway call human.requests.respond --params '{"requestId":"REQ-123","action":"approved","response":"Here are the keys: sk_live_..."}'
+```
+
+Verify: `cat ~/.moltbot/human-requests/*REQ-123* | jq '.status, .response'` should show `"approved"` and your response.
+
 **Via TUI:**
 ```bash
 node moltbot.mjs tui --session agent:human:main
 # See pending requests
 # Type: "RESPONSE REQ-123: APPROVED - Here are the keys: sk_live_..."
 ```
+Note: If your config has no `human` agent, the TUI may connect as another agent; the request file is only updated when you use the CLI `gateway call` above or the control UI.
 
 **Via Messaging (Telegram example):**
 ```

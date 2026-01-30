@@ -1,4 +1,6 @@
 import type { Command } from "commander";
+import fs from "node:fs";
+import path from "node:path";
 import { DEFAULT_CHAT_CHANNEL } from "../../channels/registry.js";
 import { agentCliCommand } from "../../commands/agent-via-gateway.js";
 import {
@@ -21,7 +23,8 @@ export function registerAgentCommands(program: Command, args: { agentChannelOpti
   program
     .command("agent")
     .description("Run an agent turn via the Gateway (use --local for embedded)")
-    .requiredOption("-m, --message <text>", "Message body for the agent")
+    .option("-m, --message <text>", "Message body for the agent")
+    .option("--message-file <path>", "Read message body from file (safe for content with quotes)")
     .option("-t, --to <number>", "Recipient number in E.164 used to derive the session key")
     .option("--session-id <id>", "Use an explicit session id")
     .option("--agent <id>", "Agent id (overrides routing bindings)")
@@ -71,6 +74,12 @@ ${formatHelpExamples([
 ${theme.muted("Docs:")} ${formatDocsLink("/cli/agent", "docs.molt.bot/cli/agent")}`,
     )
     .action(async (opts) => {
+      if (opts.messageFile) {
+        opts.message = fs.readFileSync(path.resolve(opts.messageFile), "utf8");
+      }
+      if (!opts.message?.trim()) {
+        throw new Error("Message (--message) or --message-file is required");
+      }
       const verboseLevel = typeof opts.verbose === "string" ? opts.verbose.toLowerCase() : "";
       setVerbose(verboseLevel === "on");
       // Build default deps (keeps parity with other commands; future-proofing).

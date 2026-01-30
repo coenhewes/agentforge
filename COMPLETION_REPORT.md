@@ -220,10 +220,8 @@ Humans can manage requests via API:
    # Via TUI
    node moltbot.mjs tui --session agent:human:main
    
-   # Via API
-   curl http://localhost:18789 -X POST -d '{
-     "method": "human.requests.list"
-   }'
+   # Via CLI (gateway call uses WebSocket; HTTP curl does not reach these methods)
+   node moltbot.mjs gateway call human.requests.list --params '{}'
    ```
 
 2. **Human sees request details:**
@@ -233,21 +231,11 @@ Humans can manage requests via API:
    - Suggested action
    - Timeout
 
-3. **Human responds:**
+3. **Human responds:** The gateway accepts `human.requests.respond` only over WebSocket. Use the CLI:
    ```bash
-   # Via TUI (in agent:human:main session)
-   RESPONSE REQ-XXXXX: APPROVED - Keys are sk_live_...
-   
-   # Via API
-   curl http://localhost:18789 -X POST -d '{
-     "method": "human.requests.respond",
-     "params": {
-       "requestId": "REQ-XXXXX",
-       "action": "approved",
-       "response": "Keys are sk_live_..."
-     }
-   }'
+   node moltbot.mjs gateway call human.requests.respond --params '{"requestId":"REQ-XXXXX","action":"approved","response":"Keys are sk_live_..."}'
    ```
+   Or in TUI (in agent:human:main session): `RESPONSE REQ-XXXXX: APPROVED - Keys are sk_live_...`
 
 4. **Agent reads response:**
    - Checks `agent:human:main` session
