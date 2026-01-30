@@ -155,7 +155,8 @@ export function createSessionsSpawnTool(opts?: {
       const childSessionKey = `agent:${targetAgentId}:subagent:${crypto.randomUUID()}`;
       const spawnedByKey = requesterInternalKey;
       const targetAgentConfig = resolveAgentConfig(cfg, targetAgentId);
-      const runCtx = opts.runId ? getAgentRunContext(opts.runId) : undefined;
+      const runId = opts?.runId;
+      const runCtx = runId ? getAgentRunContext(runId) : undefined;
       const effectiveModelRef =
         runCtx?.effectiveProvider && runCtx?.effectiveModel
           ? `${runCtx.effectiveProvider}/${runCtx.effectiveModel}`
