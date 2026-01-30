@@ -150,6 +150,8 @@ export function createMoltbotCodingTools(options?: {
   hasRepliedRef?: { value: boolean };
   /** If true, the model has native vision capability */
   modelHasVision?: boolean;
+  /** Current run id (for spawn tool to use parent effective model after fallback). */
+  runId?: string;
 }): AnyAgentTool[] {
   const execToolName = "exec";
   const sandbox = options?.sandbox?.enabled ? options.sandbox : undefined;
@@ -333,6 +335,7 @@ export function createMoltbotCodingTools(options?: {
       replyToMode: options?.replyToMode,
       hasRepliedRef: options?.hasRepliedRef,
       modelHasVision: options?.modelHasVision,
+      runId: options?.runId,
       requesterAgentIdOverride: agentId,
     }),
   ];

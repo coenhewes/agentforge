@@ -128,7 +128,7 @@ describe("moltbot-tools: subagents", () => {
     });
   });
 
-  it("sessions_spawn rejects invalid thinking levels", async () => {
+  it("sessions_spawn ignores invalid thinking level and proceeds with default", async () => {
     resetSubagentRegistryForTests();
     callGatewayMock.mockReset();
     const calls: Array<{ method?: string }> = [];
@@ -150,10 +150,9 @@ describe("moltbot-tools: subagents", () => {
       thinking: "banana",
     });
     expect(result.details).toMatchObject({
-      status: "error",
+      status: "accepted",
     });
-    expect(String(result.details?.error)).toMatch(/Invalid thinking level/i);
-    expect(calls).toHaveLength(0);
+    expect(calls.length).toBeGreaterThan(0);
   });
   it("sessions_spawn applies default subagent model from defaults config", async () => {
     resetSubagentRegistryForTests();

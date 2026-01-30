@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { resolveAgentModelFallbacksOverride } from "../../agents/agent-scope.js";
 import { runCliAgent } from "../../agents/cli-runner.js";
 import { getCliSessionId } from "../../agents/cli-session.js";
+import { describeFailoverError } from "../../agents/failover-error.js";
 import { runWithModelFallback } from "../../agents/model-fallback.js";
 import { isCliProvider } from "../../agents/model-selection.js";
 import { runEmbeddedPiAgent } from "../../agents/pi-embedded.js";
@@ -21,7 +22,10 @@ import {
 } from "../../config/sessions.js";
 import { logVerbose } from "../../globals.js";
 import { emitAgentEvent, registerAgentRunContext } from "../../infra/agent-events.js";
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { defaultRuntime } from "../../runtime.js";
+
+const logFallback = createSubsystemLogger("agent/fallback");
 import {
   isMarkdownCapableMessageChannel,
   resolveMessageChannel,
@@ -143,7 +147,14 @@ export async function runAgentTurnWithFallback(params: {
           params.followupRun.run.config,
           resolveAgentIdFromSessionKey(params.followupRun.run.sessionKey),
         ),
+        onError: ({ provider, model, error, attempt, total }) => {
+          const described = describeFailoverError(error);
+          logFallback.info(
+            `Primary ${provider}/${model} returned ${described.reason ?? "error"} (attempt ${attempt}/${total}), trying fallback`,
+          );
+        },
         run: (provider, model) => {
+          registerAgentRunContext(runId, { effectiveProvider: provider, effectiveModel: model });
           // Notify that model selection is complete (including after fallback).
           // This allows responsePrefix template interpolation with the actual model.
           params.opts?.onModelSelected?.({

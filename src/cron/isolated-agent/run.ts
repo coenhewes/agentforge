@@ -335,6 +335,10 @@ export async function runCronIsolatedAgentTurn(params: {
       agentDir,
       fallbacksOverride: resolveAgentModelFallbacksOverride(params.cfg, agentId),
       run: (providerOverride, modelOverride) => {
+        registerAgentRunContext(cronSession.sessionEntry.sessionId, {
+          effectiveProvider: providerOverride,
+          effectiveModel: modelOverride,
+        });
         if (isCliProvider(providerOverride, cfgWithAgentDefaults)) {
           const cliSessionId = getCliSessionId(cronSession.sessionEntry, providerOverride);
           return runCliAgent({

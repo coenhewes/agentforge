@@ -5,6 +5,7 @@ import { Type } from "@sinclair/typebox";
 import { formatThinkingLevels, normalizeThinkLevel } from "../../auto-reply/thinking.js";
 import { loadConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
+import { getAgentRunContext } from "../../infra/agent-events.js";
 import { normalizeAgentId, parseAgentSessionKey } from "../../routing/session-key.js";
 import { normalizeDeliveryContext } from "../../utils/delivery-context.js";
 import type { GatewayMessageChannel } from "../../utils/message-channel.js";
@@ -65,6 +66,8 @@ export function createSessionsSpawnTool(opts?: {
   sandboxed?: boolean;
   /** Explicit agent ID override for cron/hook sessions where session key parsing may not work. */
   requesterAgentIdOverride?: string;
+  /** Current run id (use parent effective model after fallback so subagents avoid rate-limited primary). */
+  runId?: string;
 }): AnyAgentTool {
   return {
     label: "Sessions",
@@ -152,22 +155,21 @@ export function createSessionsSpawnTool(opts?: {
       const childSessionKey = `agent:${targetAgentId}:subagent:${crypto.randomUUID()}`;
       const spawnedByKey = requesterInternalKey;
       const targetAgentConfig = resolveAgentConfig(cfg, targetAgentId);
+      const runCtx = opts.runId ? getAgentRunContext(opts.runId) : undefined;
+      const effectiveModelRef =
+        runCtx?.effectiveProvider && runCtx?.effectiveModel
+          ? `${runCtx.effectiveProvider}/${runCtx.effectiveModel}`
+          : undefined;
       const resolvedModel =
         normalizeModelSelection(modelOverride) ??
+        (effectiveModelRef ? effectiveModelRef : undefined) ??
         normalizeModelSelection(targetAgentConfig?.subagents?.model) ??
         normalizeModelSelection(cfg.agents?.defaults?.subagents?.model);
       let thinkingOverride: string | undefined;
       if (thinkingOverrideRaw) {
         const normalized = normalizeThinkLevel(thinkingOverrideRaw);
-        if (!normalized) {
-          const { provider, model } = splitModelRef(resolvedModel);
-          const hint = formatThinkingLevels(provider, model);
-          return jsonResult({
-            status: "error",
-            error: `Invalid thinking level "${thinkingOverrideRaw}". Use one of: ${hint}.`,
-          });
-        }
-        thinkingOverride = normalized;
+        if (normalized) thinkingOverride = normalized;
+        // If the value is not a valid level (e.g. LLM passed task text), ignore and use default.
       }
       if (resolvedModel) {
         try {

@@ -1,4 +1,5 @@
 import type { TUI } from "@mariozechner/pi-tui";
+import { formatRawAssistantErrorForUi } from "../agents/pi-embedded-helpers.js";
 import type { ChatLog } from "./components/chat-log.js";
 import { asString, extractTextFromMessage, isCommandMessage } from "./tui-formatters.js";
 import { TuiStreamAssembler } from "./tui-stream-assembler.js";
@@ -109,6 +110,8 @@ export function createEventHandlers(context: EventHandlerContext) {
       void refreshSessionInfo?.();
     }
     if (evt.state === "error") {
+      const errorText = formatRawAssistantErrorForUi(evt.errorMessage ?? "unknown");
+      chatLog.finalizeAssistant(errorText, evt.runId);
       chatLog.addSystem(`run error: ${evt.errorMessage ?? "unknown"}`);
       streamAssembler.drop(evt.runId);
       sessionRuns.delete(evt.runId);

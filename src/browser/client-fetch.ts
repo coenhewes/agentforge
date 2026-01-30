@@ -105,6 +105,15 @@ export async function fetchBrowserJson<T>(
     }
     return result.body as T;
   } catch (err) {
+    const msg = String(err instanceof Error ? err.message : err);
+    // Don't wrap server-side validation/errors (4xx from act route); preserve so model sees real message.
+    if (
+      /fields are required|ref is required|required for fill|HTTP 4\d{2}/.test(msg) ||
+      msg.includes("ref and values") ||
+      msg.includes("width and height")
+    ) {
+      throw err instanceof Error ? err : new Error(msg);
+    }
     throw enhanceBrowserFetchError(url, err, timeoutMs);
   }
 }

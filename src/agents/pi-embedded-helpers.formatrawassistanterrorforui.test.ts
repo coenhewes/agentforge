@@ -23,4 +23,14 @@ describe("formatRawAssistantErrorForUi", () => {
       "HTTP 500: Internal Server Error",
     );
   });
+
+  it("parses LLM error prefix and nested Gemini-style JSON (429 quota)", () => {
+    const raw =
+      'LLM error: { "error": { "code": 429, "message": "You exceeded your current quota, please check your plan and billing details.", "status": "RESOURCE_EXHAUSTED" } }';
+    const text = formatRawAssistantErrorForUi(raw);
+    expect(text).toContain("429");
+    expect(text).toContain("You exceeded your current quota");
+    expect(text).not.toContain("RESOURCE_EXHAUSTED");
+    expect(text.length).toBeLessThan(200);
+  });
 });

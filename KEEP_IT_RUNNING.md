@@ -119,6 +119,20 @@ Shows active ventures, spend, revenue, and status. For a TUI: `node dist/entry.j
 
 If the session stays **idle** with no further messages, the run may have errored or the model may have stopped without a follow-up. Use `/status` in the TUI and check `journalctl -u agentforge-gateway -n 100` for errors.
 
+### TUI: works when opening session, fails when sending in already-open session
+
+If opening the CEO session works (history loads, first message may work) but sending a message in the **already-open** session gives “(no output)” or no reply:
+
+1. **Run failed (429 / fallback failed)** – The run may be failing (e.g. Gemini 429 then OpenAI also fails). The gateway should then emit a chat **error** event so the TUI shows “run error: …”. If you see “(no output)” instead, check gateway logs at the time you sent the message:  
+   `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -E 'FailoverError|429|error|lane'`  
+   If you see `FailoverError` or 429 there, the run failed; the TUI may not be receiving the error event (e.g. wrong runId or session filter). As a **workaround**: close the TUI and reopen the session, then send again; or wait for quota to reset and retry.
+
+2. **Run completed with no text** – The run may be **completing** with no assistant text (e.g. model returned only tool calls or empty). In that case you get “(no output)” or “(tool calls only)” and no “run error”. Wait a bit for a follow-up message, or send a short follow-up (e.g. “ok?”).
+
+3. **Lane / queue** – If the CEO session is on a lane and the previous run is still in progress or failed without clearing, the next message might queue and then fail. Check logs for “lane task error” or “lane wait exceeded”.
+
+**Quick check:** When it happens, run `sudo journalctl -u agentforge-gateway -n 50 --no-pager` and look for the time you sent the message; that will show whether the run failed (error/429) or completed (and with what).
+
 ### Browser act fails with “fields are required”
 
 This happens when the agent uses **browser act** with action **fill** but the `fields` array is missing, empty, or has items without `ref` and `type`. The fill action expects: `fields: [ { ref: "<aria ref>", type: "text"|"checkbox"|…, value?: … }, … ]`. If the model sends a different shape (e.g. `selector` instead of `ref`), entries are dropped and the service returns “fields are required”.
@@ -127,6 +141,48 @@ This happens when the agent uses **browser act** with action **fill** but the `f
 - **Workaround:** Use manual credential entry or human intervention for sign-up (as the CEO concluded). Browser automation for form fill is best when the model gets a snapshot first and emits fields with `ref`/`type` from the snapshot’s refs.
 
 Note: The browser control service runs only where the gateway runs (e.g. Mac with Moltbot.app and Chrome + Browser Relay extension). On a VPS, `browser.open`/`snapshot`/`act` only work if a browser-capable **node** is connected; otherwise use manual sign-up and credentials.
+
+### 429 RESOURCE_EXHAUSTED but fallback not trying OpenAI
+
+If you still see only Gemini in the footer and 429 errors after setting `agents.defaults.model.fallbacks` and deploying the fallback fix:
+
+1. **Confirm the gateway is running the new build**  
+   Check process start time and that it’s using the repo you updated:  
+   `ps -eo pid,lstart,cmd | grep -E 'gateway|node.*entry'`  
+   Restart again if needed: `sudo systemctl restart agentforge-gateway`.
+
+2. **Confirm default fallbacks in config**  
+   On the VPS (as the user that runs the gateway, e.g. `agentforge`):  
+   `cat ~/.clawdbot/moltbot.json | jq '.agents.defaults.model'`  
+   You should see `"fallbacks": ["openai/gpt-5-mini"]` (or your fallback model). If `agents.defaults.model` is a string, replace it with an object that has `primary` and `fallbacks` (see VPS_DEPLOYMENT_GUIDE Step 5b).
+
+3. **Confirm OpenAI is configured**  
+   `cat ~/.clawdbot/moltbot.json | jq '.models.providers.openai'`  
+   There should be `apiKey` (or env reference) and `models` with your fallback model id (e.g. `gpt-5-mini`). If missing, add the OpenAI provider (VPS_DEPLOYMENT_GUIDE Step 5b).
+
+4. **Check gateway logs for fallback attempts**  
+   `sudo journalctl -u agentforge-gateway -n 200 --no-pager | grep -iE 'fallback|openai|429|exhausted'`  
+   If you see a fallback attempt to OpenAI and then another error, the issue may be OpenAI (key, quota, or model id). If you never see OpenAI in the logs, the 429 may be on a path that doesn’t use model fallback, or the config isn’t being read as expected.
+
+5. **Optional: set CEO fallbacks explicitly**  
+   If defaults still don’t apply, set the CEO’s model fallbacks in config:  
+   `jq '(.agents.list[] | select(.id == "ceo") | .model.fallbacks) = ["openai/gpt-5-mini"]' ~/.clawdbot/moltbot.json > /tmp/c.json && mv /tmp/c.json ~/.clawdbot/moltbot.json`  
+   Then restart the gateway.
+
+### Gemini daily quota exceeded (graceful fallback)
+
+When Gemini hits its daily limit (429 "You exceeded your current quota"), the system will try the fallback model if `agents.defaults.model.fallbacks` (or the agent’s fallbacks) are set. You’ll see a short log line like:
+
+`Primary google/gemini-2.0-flash returned rate_limit (attempt 1/2), trying fallback`
+
+and the run continues on the fallback (e.g. OpenAI). Subagents spawned during that run use the same effective model (the fallback), so they do not spin up on the rate-limited primary. The TUI and assistant bubble show a short message (e.g. "HTTP 429: You exceeded your current quota...") instead of the full error JSON. If you still see repeated full "LLM error: { ... }" dumps, ensure fallbacks are configured (see [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai)) and that the gateway is running the latest build.
+
+### Lane task error / FailoverError in logs
+
+If you see `lane task error` or `FailoverError` with `429` in gateway logs:
+
+- **lane wait exceeded** – The run waited in the lane queue (e.g. another run was using the same lane). Normal under load; if it happens often, consider increasing lane capacity or reducing concurrent runs.
+- **lane task error … FailoverError … 429** – The run hit a rate limit (or similar) and fallback either failed too or wasn't configured. The TUI should show the error in the assistant bubble and a system line "run error: …". Fix fallbacks (see [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai)) or wait for quota to reset, then retry.
 
 ---
 
@@ -185,3 +241,5 @@ Store the tarball somewhere safe (not only on the same VPS).
 4. **Update when you pull** – Rebuild and restart the gateway.
 
 For full deployment, troubleshooting, and testing, see [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md).
+
+

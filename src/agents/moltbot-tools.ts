@@ -52,6 +52,8 @@ export function createMoltbotTools(options?: {
   hasRepliedRef?: { value: boolean };
   /** If true, the model has native vision capability */
   modelHasVision?: boolean;
+  /** Current run id (for spawn to use parent effective model after fallback). */
+  runId?: string;
   /** Explicit agent ID override for cron/hook sessions. */
   requesterAgentIdOverride?: string;
 }): AnyAgentTool[] {
@@ -129,6 +131,7 @@ export function createMoltbotTools(options?: {
       agentGroupChannel: options?.agentGroupChannel,
       agentGroupSpace: options?.agentGroupSpace,
       sandboxed: options?.sandboxed,
+      runId: options?.runId,
       requesterAgentIdOverride: options?.requesterAgentIdOverride,
     }),
     createSessionStatusTool({

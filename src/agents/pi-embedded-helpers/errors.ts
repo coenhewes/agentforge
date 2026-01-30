@@ -49,7 +49,7 @@ export function isCompactionFailureError(errorMessage?: string): boolean {
 }
 
 const ERROR_PAYLOAD_PREFIX_RE =
-  /^(?:error|api\s*error|apierror|openai\s*error|anthropic\s*error|gateway\s*error)[:\s-]+/i;
+  /^(?:error|api\s*error|apierror|openai\s*error|anthropic\s*error|gateway\s*error|llm\s*error)[:\s-]+/i;
 const FINAL_TAG_RE = /<\s*\/?\s*final\s*>/gi;
 const ERROR_PREFIX_RE =
   /^(?:error|api\s*error|openai\s*error|anthropic\s*error|gateway\s*error|request failed|failed|exception)[:\s-]+/i;
@@ -212,15 +212,19 @@ export function parseApiErrorInfo(raw?: string): ApiErrorInfo | null {
 
   let errType: string | undefined;
   let errMessage: string | undefined;
+  let nestedHttpCode: string | undefined;
   if (payload.error && typeof payload.error === "object" && !Array.isArray(payload.error)) {
     const err = payload.error as Record<string, unknown>;
     if (typeof err.type === "string") errType = err.type;
     if (typeof err.code === "string" && !errType) errType = err.code;
+    if (typeof err.code === "number" && err.code >= 400) nestedHttpCode = String(err.code);
+    if (typeof err.status === "string" && !nestedHttpCode && /^\d{3}$/.test(err.status))
+      nestedHttpCode = err.status;
     if (typeof err.message === "string") errMessage = err.message;
   }
 
   return {
-    httpCode,
+    httpCode: httpCode ?? nestedHttpCode,
     type: errType ?? topType,
     message: errMessage ?? topMessage,
     requestId,

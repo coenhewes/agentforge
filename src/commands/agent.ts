@@ -385,6 +385,10 @@ export async function agentCommand(
         agentDir,
         fallbacksOverride: resolveAgentModelFallbacksOverride(cfg, sessionAgentId),
         run: (providerOverride, modelOverride) => {
+          registerAgentRunContext(runId, {
+            effectiveProvider: providerOverride,
+            effectiveModel: modelOverride,
+          });
           if (isCliProvider(providerOverride, cfg)) {
             const cliSessionId = getCliSessionId(sessionEntry, providerOverride);
             return runCliAgent({
