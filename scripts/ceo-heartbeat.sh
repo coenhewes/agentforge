@@ -51,9 +51,11 @@ REMEMBER:
 
 BEGIN CONTINUOUS OVERSIGHT."
 
-# Send to CEO agent
+# Send to CEO agent (use dist/entry.js after build; fallback to moltbot.mjs if present)
 cd "$REPO_ROOT"
-node moltbot.mjs agent --agent ceo --message "$PROMPT" > /dev/null 2>&1
+CLI="${REPO_ROOT}/dist/entry.js"
+[ -f "$CLI" ] || CLI="${REPO_ROOT}/moltbot.mjs"
+node "$CLI" agent --agent ceo --message "$PROMPT" > /dev/null 2>&1
 
 # After CEO heartbeat, run venture runloop for active investments
 # Extract active investment IDs from LEDGER.md and run venture:tick for each
@@ -65,7 +67,7 @@ if [ -f ~/.moltbot/agents/ceo/LEDGER.md ]; then
   for venture_id in $ACTIVE_IDS; do
     if [ ! -z "$venture_id" ] && [ "$venture_id" != "-" ]; then
       echo "[$(date)] Running venture tick for $venture_id" >&2
-      node moltbot.mjs venture:tick --venture-id "$venture_id" > /dev/null 2>&1 || true
+      node "$CLI" venture:tick --venture "$venture_id" > /dev/null 2>&1 || true
     fi
   done
 fi

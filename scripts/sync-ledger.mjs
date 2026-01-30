@@ -33,16 +33,18 @@ function parseArgs(argv) {
 
 async function main() {
   const { mode, ledgerPath, workspaceDir } = parseArgs(process.argv.slice(2));
-  
+  const ledger = ledgerPath ?? undefined;
+  const workspace = workspaceDir ?? undefined;
+
   try {
     if (mode === "to-sqlite") {
-      await syncLedgerToState(ledgerPath, workspaceDir);
+      await syncLedgerToState(ledger, workspace);
       console.log("[sync-ledger] Synced LEDGER.md -> SQLite");
     } else if (mode === "to-markdown") {
-      await syncStateToLedger(ledgerPath, workspaceDir);
+      await syncStateToLedger(ledger, workspace);
       console.log("[sync-ledger] Synced SQLite -> LEDGER.md");
     } else {
-      await bidirectionalSync(ledgerPath, workspaceDir);
+      await bidirectionalSync(ledger, workspace);
       console.log("[sync-ledger] Bidirectional sync complete");
     }
   } catch (err) {

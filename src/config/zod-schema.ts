@@ -245,6 +245,72 @@ export const MoltbotSchema = z
       })
       .strict()
       .optional(),
+    humanInterface: z
+      .object({
+        enabled: z.boolean().optional(),
+        channels: z
+          .object({
+            notifications: z.string().optional(),
+            urgent: z.string().optional(),
+            approvals: z.string().optional(),
+          })
+          .strict()
+          .optional(),
+        autoApprove: z
+          .object({
+            enabled: z.boolean().optional(),
+            categories: z.array(z.string()).optional(),
+            maxAmount: z.number().optional(),
+          })
+          .strict()
+          .optional(),
+        escalation: z
+          .object({
+            urgentTimeout: z.string().optional(),
+            highTimeout: z.string().optional(),
+            mediumTimeout: z.string().optional(),
+            lowTimeout: z.string().optional(),
+          })
+          .strict()
+          .optional(),
+        agentforge: z
+          .object({
+            capitalManagement: z
+              .object({
+                enabled: z.boolean().optional(),
+                allowedSpendUsd: z.number().optional(),
+                cardEncryptionKeyId: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+            stripe: z
+              .object({
+                enabled: z.boolean().optional(),
+                secretKey: z.string().optional(),
+                publicKey: z.string().optional(),
+              })
+              .strict()
+              .optional(),
+            heartbeat: z
+              .object({
+                enabled: z.boolean().optional(),
+                intervalMinutes: z.number().optional(),
+              })
+              .strict()
+              .optional(),
+            ventureRunloop: z
+              .object({
+                enabled: z.boolean().optional(),
+                subagentTimeoutMinutes: z.number().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     web: z
       .object({
         enabled: z.boolean().optional(),

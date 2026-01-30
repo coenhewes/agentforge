@@ -1,8 +1,6 @@
 # AgentForge - Ubuntu 22.04 LTS VPS Deployment Guide
 
-**Complete guide for deploying AgentForge on a remote Ubuntu VPS**
-
-**Upgrading a live VPS?** See [VPS_UPGRADE_GUIDE.md](VPS_UPGRADE_GUIDE.md) for pulling the latest code, adding Gemini/Codex API keys, and switching to the Gemini 3 Pro + Nano Banana Pro model plan.
+**Fresh deploy only.** Use this guide when deploying AgentForge on a new Ubuntu VPS from scratch. (For upgrading an existing VPS, see [VPS_UPGRADE_GUIDE.md](VPS_UPGRADE_GUIDE.md).)
 
 ---
 
@@ -10,51 +8,43 @@
 
 ### What You Need
 
-**VPS Specifications (Minimum):**
+**VPS (minimum):**
 - Ubuntu 22.04 LTS
 - 2 CPU cores
 - 4GB RAM (8GB recommended)
-- 20GB disk space
-- Public IP or domain (optional, for remote access)
+- 20GB disk
+- Public IP or domain (optional)
 
-**Local Machine:**
-- SSH client
-- Terminal access
+**Local:**
+- SSH client, terminal
 
-**API Keys:**
-- Anthropic API key (Claude) - recommended, OR
-- OpenAI API key (GPT-4), OR
-- Google AI API key (Gemini)
+**API keys:**
+- **Google (Gemini)** – required for the recommended model plan (board, CEO, image). Get key: https://aistudio.google.com/apikey
+- **(Optional)** OpenAI API key for fallback and/or Codex (developer subagents): https://platform.openai.com/api-keys
 
 ---
 
 ## Step 1: Initial VPS Setup (10 minutes)
 
-### 1a. Connect to Your VPS
+### 1a. Connect
 
 ```bash
-# From your local machine
 ssh root@YOUR_VPS_IP
 ```
 
-**Replace `YOUR_VPS_IP` with your actual VPS IP address**
+Replace `YOUR_VPS_IP` with your VPS IP or hostname.
 
-### 1b. Create Non-Root User (Security Best Practice)
+### 1b. Non-root user
 
 ```bash
-# Create user
 adduser agentforge
-
-# Add to sudo group
 usermod -aG sudo agentforge
-
-# Switch to new user
 su - agentforge
 ```
 
-**All subsequent commands run as `agentforge` user**
+**Run all following steps as `agentforge`.**
 
-### 1c. Update System
+### 1c. Update system
 
 ```bash
 sudo apt update
@@ -65,593 +55,392 @@ sudo apt upgrade -y
 
 ## Step 2: Install Dependencies (15 minutes)
 
-### 2a. Install Node.js 22.x
+### 2a. Node.js 22.x
 
 ```bash
-# Install Node.js 22.x via NodeSource
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
-
-# Verify
-node --version
-# Should show: v22.x.x
+node --version   # v22.x.x
 ```
 
-### 2b. Install pnpm
+### 2b. pnpm
 
 ```bash
-# Install pnpm globally
 sudo npm install -g pnpm
-
-# Verify
 pnpm --version
-# Should show: 9.x.x or similar
 ```
 
-### 2c. Install Git
+### 2c. Git and build tools
 
 ```bash
-sudo apt install -y git
-
-# Verify
-git --version
+sudo apt install -y git build-essential python3
 ```
 
-### 2d. Install Build Tools
+### 2d. Playwright (browser automation)
+
+System libraries required for Playwright-driven browser automation:
 
 ```bash
-# Required for native modules
-sudo apt install -y build-essential python3
-```
-
-### 2e. Install Playwright Dependencies (for browser automation)
-
-```bash
-# Install system dependencies for Playwright
 sudo apt install -y \
-  libnss3 \
-  libnspr4 \
-  libatk1.0-0 \
-  libatk-bridge2.0-0 \
-  libcups2 \
-  libdrm2 \
-  libdbus-1-3 \
-  libxkbcommon0 \
-  libatspi2.0-0 \
-  libxcomposite1 \
-  libxdamage1 \
-  libxfixes3 \
-  libxrandr2 \
-  libgbm1 \
-  libpango-1.0-0 \
-  libcairo2 \
-  libasound2
+  libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libdbus-1-3 \
+  libxkbcommon0 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+  libgbm1 libpango-1.0-0 libcairo2 libasound2
 ```
+
+### 2e. Google Chrome (for managed browser on Linux)
+
+On Ubuntu, the default Chromium package is a snap stub and causes CDP (browser control) issues. For agent browser automation you need Google Chrome installed:
+
+```bash
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+sudo apt --fix-broken install -y
+```
+
+You must also complete **Step 5h (Configure browser for VPS)** after init so the managed browser is fully deployed.
+
+### 2f. Optional: bird (Twitter/X CLI)
+
+If agents will use Twitter/X (tweet, search, read threads), install the bird CLI:
+
+```bash
+sudo npm install -g @steipete/bird
+bird whoami   # verify (auth is cookie-based; configure separately)
+```
+
+Other skills (e.g. GitHub, Vercel, Stripe) are configured in later steps; see `skills/` in the repo for the full list.
 
 ---
 
-## Step 3: Clone and Build AgentForge (10 minutes)
+## Step 3: Clone and Build (10 minutes)
 
-### 3a. Clone Repository
+### 3a. Clone
 
 ```bash
 cd ~
-git clone https://github.com/moltbot/moltbot.git agentforge
+git clone https://github.com/coenhewes/agentforge.git agentforge
 cd agentforge
 ```
 
-**Note:** Replace with your actual repository URL if you forked it
+Use your own fork or the AgentForge repo URL; the folder name (`agentforge`) is used in paths below.
 
-### 3b. Install Dependencies
+### 3b. Install and build
 
 ```bash
 pnpm install
-```
-
-**This will take 2-5 minutes**
-
-### 3c. Build Project
-
-```bash
 pnpm build
+ls -la dist/   # should include entry.js, cli.js, agentforge/, etc.
 ```
 
-**Expected output:**
-```
-> moltbot@2026.1.26 build
-> ...
-```
+The guide uses **`node dist/entry.js`** for all CLI commands. That file is created by `pnpm build` and works even if `moltbot.mjs` is not present in the clone.
 
-**Verify build:**
+### 3c. Playwright browsers (Chrome recommended)
+
+Install the browser(s) Playwright will drive. Use **Chrome** (not Chromium) for best compatibility with agent browser automation:
+
 ```bash
-ls -la dist/
-# Should see: cli.js and other files
+pnpx playwright install chrome
 ```
 
-### 3d. Install Playwright Browsers
+Optional: also install Chromium if you want a fallback:
 
 ```bash
 pnpx playwright install chromium
 ```
 
-**This installs Chromium for browser automation**
-
 ---
 
 ## Step 4: Initialize AgentForge (5 minutes)
 
-### 4a. Run Initialization
+### 4a. Run init
 
 ```bash
 cd ~/agentforge
-node moltbot.mjs init:agentforge
+node dist/entry.js init:agentforge
 ```
 
-**Expected output:**
-```
-✅ AgentForge initialized successfully!
+This:
 
-📋 Next steps:
-  1. Set your AI provider: node moltbot.mjs auth choice
-  2. Start gateway: node moltbot.mjs gateway run --port 18789
-  ...
-```
+- Copies board (cfo, cto, cmo, coo, analyst, risk, innovation), coordinator, and CEO workspaces to `~/.moltbot/agents/`
+- Sets `tools.exec.security=full`, `tools.exec.ask=off` (headless/cron)
+- Sets `sandbox.mode=off` for all AgentForge agents
+- Registers 9 agents with **Gemini 3 Pro** (board, coordinator, CEO) and **Nano Banana Pro** (image)
+- Writes cron template to `~/.moltbot/agentforge-cron.txt`
 
-### What `init:agentforge` Configures (Important)
-
-`init:agentforge` updates your config to support **headless autonomy**:
-
-- Sets `tools.exec.security="full"` and `tools.exec.ask="off"` (so cron/headless runs never wait for exec approvals)
-- Sets `sandbox.mode="off"` for all 9 AgentForge agents (no Docker/sandbox restrictions)
-- Sets `subagents.allowAgents=["*"]` for the CEO (so the CEO can spawn any worker agent id)
-
-### 4b. Verify Agent Workspaces
+### 4b. Verify
 
 ```bash
 ls ~/.moltbot/agents/
-```
+# board  ceo  coordinator
 
-**Should show:**
-```
-analyst  ceo  cfo  cmo  coo  coordinator  cto  innovation  risk
-```
+ls ~/.moltbot/agents/board/
+# analyst  cfo  cmo  coo  cto  innovation  risk
 
-### 4c. Verify Cron Template Created
-
-```bash
 cat ~/.moltbot/agentforge-cron.txt
+# Board 9am, CEO 10am, weekly reflection, monthly learning
 ```
 
-**Should show cron job templates**
+The seven board members (analyst, cfo, cmo, coo, cto, risk, innovation) live under `board/`; CEO and coordinator are top-level.
+
+### 4c. Next steps (from init)
+
+1. Set AI provider: follow **Step 5a** below (add Gemini API key to config with `jq`). For interactive setup instead, run `node dist/entry.js onboard`.
+2. GitHub: `node dist/entry.js setup:github` (required for building products)
+3. Vercel: `node dist/entry.js setup:vercel` (required for deploying products)
+4. Start gateway: `node dist/entry.js gateway run --port 18789`
+5. First board meeting: `./scripts/board-meeting.sh`
+6. Coordinator TUI: `node dist/entry.js tui --session agent:coordinator:main`
+7. CEO execution: `./scripts/ceo-implement.sh`
+8. Install cron (and CEO heartbeat – see Step 8)
 
 ---
 
-## Step 5: Configure AI Provider (3 minutes)
+## Step 5: Configure AI Provider and config (5 minutes)
 
-**IMPORTANT:** After this step, also complete Step 5b (GitHub Access) - Critical for building products!
+The config file **`~/.clawdbot/moltbot.json`** is created by init (Step 4) and then filled in here. Complete 5a (AI provider), 5h (browser), 5h2 (gateway auth token), and 5i (verify) so the config is **fully ready** before you start the gateway (Step 6).
 
+### 5a. Recommended: Google (Gemini 3 Pro + Nano Banana Pro)
 
-
-### 5a. Set API Key via Config File (Recommended for VPS)
-
-**⚠️ IMPORTANT:** The config file is at `~/.clawdbot/moltbot.json` (with `clawdbot`, not `moltbot`).
-
-The current config schema expects a **models catalog** with full provider entries (including `baseUrl` and a `models` array).  
-Use ONE of the following `jq` commands (depending on your provider) after running `init:agentforge`.
-
-#### Option 1: OpenAI (gpt-5-mini) – Recommended if you’re using OpenAI
+Required for the default AgentForge model plan (board, CEO, image).
 
 ```bash
-jq '.models = {
-  "mode": "merge",
-  "providers": {
-    "openai": {
-      "baseUrl": "https://api.openai.com/v1",
-      "apiKey": "sk-YOUR_OPENAI_KEY_HERE",
-      "api": "openai-responses",
-      "models": [
-        {
-          "id": "gpt-5-mini",
-          "name": "gpt-5-mini",
-          "api": "openai-responses",
-          "reasoning": false,
-          "input": ["text"],
-          "cost": {
-            "input": 0.0,
-            "output": 0.0,
-            "cacheRead": 0.0,
-            "cacheWrite": 0.0
-          },
-          "contextWindow": 200000,
-          "maxTokens": 16384
-        }
-      ]
-    }
-  }
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Replace `sk-YOUR_OPENAI_KEY_HERE` with your actual OpenAI API key.**
-
-#### Option 2: Claude (Anthropic)
-
-```bash
-jq '.models = {
-  "mode": "merge",
-  "providers": {
-    "anthropic": {
-      "baseUrl": "https://api.anthropic.com",
-      "apiKey": "sk-ant-YOUR_API_KEY_HERE",
-      "api": "anthropic-messages",
-      "models": [
-        {
-          "id": "claude-sonnet-4.5",
-          "name": "Claude Sonnet 4.5",
-          "api": "anthropic-messages",
-          "reasoning": true,
-          "input": ["text", "image"],
-          "cost": {
-            "input": 0.0,
-            "output": 0.0,
-            "cacheRead": 0.0,
-            "cacheWrite": 0.0
-          },
-          "contextWindow": 200000,
-          "maxTokens": 16384
-        }
-      ]
-    }
-  }
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Replace `sk-ant-YOUR_API_KEY_HERE` with your actual Anthropic API key.**
-
-#### Option 3: Google Gemini
-
-```bash
-jq '.models = {
-  "mode": "merge",
-  "providers": {
-    "google": {
-      "baseUrl": "https://generativelanguage.googleapis.com",
-      "apiKey": "YOUR_GOOGLE_AI_KEY_HERE",
-      "api": "google-generative-ai",
-      "models": [
-        {
-          "id": "gemini-2.0-flash-exp",
-          "name": "Gemini 2.0 Flash (experimental)",
-          "api": "google-generative-ai",
-          "reasoning": false,
-          "input": ["text", "image"],
-          "cost": {
-            "input": 0.0,
-            "output": 0.0,
-            "cacheRead": 0.0,
-            "cacheWrite": 0.0
-          },
-          "contextWindow": 200000,
-          "maxTokens": 16384
-        }
-      ]
-    }
-  }
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Replace `YOUR_GOOGLE_AI_KEY_HERE` with your actual Google AI Studio key.**
-
-#### Option 4: Ollama (Local or Cloud)
-
-**If using Ollama Cloud (with credits):**
-```bash
-jq '.models = {
-  "mode": "merge",
-  "providers": {
-    "ollama": {
-      "baseUrl": "https://api.ollama.ai/v1",
-      "apiKey": "YOUR_OLLAMA_API_KEY_HERE",
-      "api": "openai-completions",
-      "models": [
-        {
-          "id": "llama3.3",
-          "name": "Llama 3.3",
-          "api": "openai-completions",
-          "reasoning": false,
-          "input": ["text"],
-          "cost": {
-            "input": 0.0,
-            "output": 0.0,
-            "cacheRead": 0.0,
-            "cacheWrite": 0.0
-          },
-          "contextWindow": 128000,
-          "maxTokens": 8192
-        }
-      ]
-    }
-  }
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Replace `YOUR_OLLAMA_API_KEY_HERE` with your actual Ollama API key.**
-
-**⚠️ IMPORTANT:** If you're using Ollama Cloud with hourly credit limits, **configure fallbacks** (see Step 5e below) to automatically switch to another provider when credits run out.
-
-### 5e. Configure Model Fallbacks (Recommended for Ollama Cloud)
-
-**Why:** When Ollama runs out of credits or hits rate limits, agents will automatically fall back to your backup provider.
-
-**Add fallback configuration:**
-
-```bash
-# Read current config
-CURRENT_CONFIG=$(cat ~/.clawdbot/moltbot.json)
-
-# Add fallbacks (example: Ollama primary with OpenAI fallback)
-jq '.agents.defaults.model = {
-  "primary": "ollama/llama3.3",
-  "fallbacks": ["openai/gpt-5-mini"]
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Common fallback patterns:**
-
-**Pattern 1: Ollama → OpenAI**
-```bash
-jq '.agents.defaults.model = {
-  "primary": "ollama/llama3.3",
-  "fallbacks": ["openai/gpt-5-mini"]
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Pattern 2: Ollama → Anthropic**
-```bash
-jq '.agents.defaults.model = {
-  "primary": "ollama/llama3.3",
-  "fallbacks": ["anthropic/claude-sonnet-4.5"]
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Pattern 3: Ollama → Google Gemini**
-```bash
-jq '.agents.defaults.model = {
-  "primary": "ollama/llama3.3",
-  "fallbacks": ["google/gemini-2.0-flash-exp"]
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**Pattern 4: Multiple fallbacks (Ollama → OpenAI → Anthropic)**
-```bash
-jq '.agents.defaults.model = {
-  "primary": "ollama/llama3.3",
-  "fallbacks": ["openai/gpt-5-mini", "anthropic/claude-sonnet-4.5"]
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-**How it works:**
-- When Ollama hits credit limits or rate limits, Moltbot automatically tries the fallback models in order
-- Falls back only on auth failures, rate limits, and timeouts (not on other errors)
-- Each fallback is tried until one succeeds or all fail
-- Logs show which model was used: check `sudo journalctl -u moltbot-gateway` for fallback attempts
-
-**Verify fallbacks are configured:**
-```bash
-cat ~/.clawdbot/moltbot.json | jq '.agents.defaults.model'
-```
-
-**Expected output:**
-```json
-{
-  "primary": "ollama/llama3.3",
-  "fallbacks": ["openai/gpt-5-mini"]
-}
-```
-
-### 5b. Verify Config
-
-```bash
+# Install jq if needed
 sudo apt install -y jq
-```
 
+# Set your Gemini API key
+GEMINI_KEY="YOUR_GEMINI_API_KEY"
 
-
-
-```bash
-cat ~/.clawdbot/moltbot.json | jq .
-```
-
-**Should show your configuration with API key**
-
-**Troubleshooting: "JSON5: invalid character" error:**
-
-If you get a JSON5 parse error, you likely have a corrupted config file from appending JSON instead of merging. Fix it:
-
-```bash
-# 1. Delete corrupted configs
-rm -f ~/.clawdbot/moltbot.json ~/.moltbot/moltbot.json
-
-# 2. Re-run init to recreate base config
-node moltbot.mjs init:agentforge
-
-# 3. Then use jq to add your API key (for example, OpenAI gpt-5-mini):
-jq '.models = {
-  "mode": "merge",
-  "providers": {
-    "openai": {
-      "baseUrl": "https://api.openai.com/v1",
-      "apiKey": "sk-YOUR_ACTUAL_OPENAI_KEY_HERE",
-      "api": "openai-responses",
-      "models": [
-        {
-          "id": "gpt-5-mini",
-          "name": "gpt-5-mini",
-          "api": "openai-responses",
-          "reasoning": false,
-          "input": ["text"],
-          "cost": {
-            "input": 0.0,
-            "output": 0.0,
-            "cacheRead": 0.0,
-            "cacheWrite": 0.0
-          },
-          "contextWindow": 200000,
-          "maxTokens": 16384
-        }
-      ]
+jq --arg key "$GEMINI_KEY" '.models.providers.google = {
+  "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+  "apiKey": $key,
+  "api": "google-generative-ai",
+  "models": [
+    {
+      "id": "gemini-3-pro-preview",
+      "name": "Gemini 3 Pro",
+      "api": "google-generative-ai",
+      "reasoning": true,
+      "input": ["text", "image"],
+      "cost": { "input": 2, "output": 12, "cacheRead": 0, "cacheWrite": 0 },
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "name": "Gemini 3 Flash",
+      "api": "google-generative-ai",
+      "reasoning": true,
+      "input": ["text", "image"],
+      "cost": { "input": 0.5, "output": 3, "cacheRead": 0, "cacheWrite": 0 },
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
+      "id": "gemini-3-pro-image-preview",
+      "name": "Nano Banana Pro (Gemini 3 Pro Image)",
+      "api": "google-generative-ai",
+      "reasoning": true,
+      "input": ["text", "image"],
+      "cost": { "input": 2, "output": 0.134, "cacheRead": 0, "cacheWrite": 0 },
+      "contextWindow": 65536,
+      "maxTokens": 32768
     }
-  }
+  ]
 }' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
 
-# 4. Verify
+Get key: https://aistudio.google.com/apikey
+
+### 5b. Optional: OpenAI (fallback / Codex)
+
+For default fallback and/or developer subagents (Codex):
+
+```bash
+# Fallback only
+jq '.agents.defaults.model.fallbacks = ["openai/gpt-5-mini"]' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+
+# Add OpenAI provider if not present (replace sk-... with your key)
+jq '.models.providers.openai = {
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "sk-YOUR_OPENAI_KEY",
+  "api": "openai-responses",
+  "models": [{"id": "gpt-5-mini", "name": "gpt-5-mini", "api": "openai-responses", "reasoning": false, "input": ["text"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 200000, "maxTokens": 16384}]
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+Codex: use `node dist/entry.js models auth login --provider openai-codex` so the CEO can pass the Codex model when spawning coding workers. No extra cron change; CEO SOUL already instructs this.
+
+### 5c. Other providers (alternatives to Gemini)
+
+You can use **Anthropic** or **Ollama** instead; then set `agents.list` and `agents.defaults.model` to the IDs you use. For the full AgentForge board/CEO/image plan, Gemini 3 Pro + Nano Banana Pro is recommended (see [VPS_UPGRADE_GUIDE.md](VPS_UPGRADE_GUIDE.md)).
+
+### 5d. Verify config
+
+```bash
 cat ~/.clawdbot/moltbot.json | jq .
 ```
 
+Fix JSON5 errors by re-running init then re-applying provider blocks with `jq` (do not append raw JSON).
+
 ---
 
-## Step 5c: Configure GitHub Access (5 minutes) 🆕 CRITICAL
+## Step 5e: GitHub Access (required)
 
-**Why:** Agents need GitHub to build real products, store code, and manage repositories.
-
-### Create Dedicated GitHub Account
-
-**On your local machine:**
-1. Go to https://github.com/signup
-2. Create account: `agentforge-bot` (or your choice)
-3. Use dedicated email for agent account
-
-### Generate Personal Access Token
-
-1. Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Click "Generate new token (classic)"
-3. Scopes: ✅ `repo`, ✅ `workflow`, ✅ `user:email`, ✅ `delete_repo`
-4. Copy token (format: `ghp_xxxx...`)
-
-### Configure on VPS
+Agents need GitHub to build and manage repos.
 
 ```bash
-# Run the interactive setup command
 cd ~/agentforge
-node moltbot.mjs setup:github
-
-
-# Follow prompts:
-# - Username: agentforge-bot
-# - Email: your-agent-email@example.com
-# - Token: ghp_xxxx...
-
-# This will:
-# ✅ Configure git globally
-# ✅ Store credentials securely
-# ✅ Set GITHUB_TOKEN environment variable
-# ✅ Test GitHub API connection
+node dist/entry.js setup:github
 ```
 
-**Manual setup alternative (if needed):**
-```bash
-# Set git identity
-git config --global user.name "AgentForge Bot"
-git config --global user.email "agentforge-bot@yourdomain.com"
-
-# Store credentials
-git config --global credential.helper store
-cat > ~/.git-credentials << 'EOF'
-https://agentforge-bot:YOUR_GITHUB_TOKEN_HERE@github.com
-EOF
-chmod 600 ~/.git-credentials
-
-# Set environment variable
-echo 'export GITHUB_TOKEN="YOUR_GITHUB_TOKEN_HERE"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### Test GitHub Access
-
-```bash
-# Test API connection
-curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user
-
-# Expected: JSON response with your bot account info
-```
+Follow prompts (username, email, personal access token with `repo`, `workflow`, `user:email`). Or set `git config` and `GITHUB_TOKEN` manually.
 
 ---
 
-## Step 5d: Configure Vercel Deployment (5 minutes) 🆕 CRITICAL
+## Step 5f: Vercel (required)
 
-**Why:** Agents need Vercel to deploy products instantly and make them publicly accessible.
-
-### Get Vercel Account
-
-**On your local machine:**
-1. Go to https://vercel.com/signup
-2. Sign up with GitHub (use agentforge-bot account or personal)
-
-### Generate Vercel Token
-
-1. Go to https://vercel.com/account/tokens
-2. Click "Create Token"
-3. Name: "AgentForge Bot"
-4. Scope: "Full Account"
-5. Expiration: No expiration (or 1 year)
-6. Copy token (format: `vercel_...` or similar)
-
-### Configure on VPS
+Agents need Vercel to deploy products.
 
 ```bash
-# Run the interactive setup command
-cd ~/agentforge
-node moltbot.mjs setup:vercel
-
-# Follow prompts:
-# - Vercel token: paste your token
-
-# This will:
-# ✅ Install Vercel CLI globally
-# ✅ Store auth token securely
-# ✅ Set VERCEL_TOKEN environment variable
-# ✅ Test Vercel API connection
+node dist/entry.js setup:vercel
 ```
 
-**Manual setup alternative (if needed):**
-```bash
-# Install Vercel CLI
-sudo npm install -g vercel
-
-# Store auth token
-mkdir -p ~/.vercel
-cat > ~/.vercel/auth.json << 'EOF'
-{
-  "token": "YOUR_VERCEL_TOKEN_HERE"
-}
-EOF
-chmod 600 ~/.vercel/auth.json
-
-# Set environment variable
-echo 'export VERCEL_TOKEN="YOUR_VERCEL_TOKEN_HERE"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### Test Vercel Access
-
-```bash
-# Test CLI is working
-vercel whoami
-
-# Expected: Shows your Vercel account username
-```
-
-**⚠️ IMPORTANT:** Without GitHub + Vercel, agents can't build or deploy products! Both are essential.
+Follow prompts to store token and test connection.
 
 ---
 
-## Step 6: Setup Gateway as System Service (10 minutes)
+## Step 5g: Financial and Venture State (optional)
 
-**This ensures the gateway runs 24/7 and restarts on crashes/reboots**
+Venture state is stored in SQLite per workspace. Default workspace: `~/.moltbot/ventures/default/`; DB path: `~/.moltbot/ventures/default/ops/venture.sqlite`.
 
-### 6a. Create Systemd Service File
+- **Investments, transactions, capital, payment_cards** are created and updated by the CEO and runloop; you can add **initial capital** via the Investment Portal or by running a one-off sync from LEDGER.
+- **LEDGER ↔ SQLite sync:** After CEO runs, sync with:
+  ```bash
+  cd ~/agentforge && node scripts/sync-ledger.mjs
+  ```
+  Options: `--to-sqlite`, `--to-markdown`, `--ledger <path>`, `--workspace <dir>`. The CEO heartbeat script (Step 8) runs this after each heartbeat.
+- **Stripe (optional):** Set `STRIPE_SECRET_KEY` (and optionally `STRIPE_PUBLISHABLE_KEY`) in env or in config under `humanInterface.agentforge.stripe` so revenue can sync into venture state.
+- **Investment Portal (operator UI):** From a machine with access to the VPS (or on VPS with display):
+  ```bash
+  node dist/entry.js portal
+  ```
+  Use `--workspace <dir>` and `--venture <id>` as needed. Use for capital, ventures, workers, logs, settings.
+
+---
+
+## Step 5h: Configure browser for VPS (required for browser automation)
+
+For agent browser automation to work on the VPS, the gateway must know which browser to use and how to run it headless. If you installed Google Chrome in Step 2e, set the browser config **after** init (and after AI provider config) so the deployment is complete.
+
+**1. Merge browser config into `~/.clawdbot/moltbot.json`:**
 
 ```bash
-sudo tee /etc/systemd/system/moltbot-gateway.service > /dev/null << 'EOF'
+jq '.browser = ((.browser // {}) + {
+  "enabled": true,
+  "defaultProfile": "clawd",
+  "executablePath": "/usr/bin/google-chrome-stable",
+  "headless": true,
+  "noSandbox": true
+})' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+`defaultProfile: "clawd"` makes agents use the managed browser (no Chrome extension needed on VPS).
+
+**2. Verify:**
+
+```bash
+cat ~/.clawdbot/moltbot.json | jq '.browser'
+```
+
+You should see `enabled: true`, `defaultProfile: "clawd"`, `executablePath: "/usr/bin/google-chrome-stable"`, `headless: true`, `noSandbox: true`. Restart the gateway after changing config so it picks up the browser settings.
+
+If you did not install Google Chrome in Step 2e, install it first, then run the `jq` command above. For other options (e.g. snap Chromium with attach-only mode), see `docs/tools/browser-linux-troubleshooting.md`.
+
+---
+
+## Step 5h2: Set gateway auth token (required to start the gateway)
+
+The gateway uses **token** auth by default. You must set a token or it will refuse to start with: *"Gateway auth is set to token, but no token is configured."*
+
+**1. Generate a token and write it into config:**
+
+```bash
+GATEWAY_TOKEN=$(openssl rand -hex 32)
+jq --arg token "$GATEWAY_TOKEN" '.gateway.auth = ((.gateway.auth // {}) + {"mode": "token", "token": $token})' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**2. (Optional) Add to `~/.agentforge-env`** so manual runs and CLI calls have it without reading config:
+
+```bash
+echo "CLAWDBOT_GATEWAY_TOKEN=$GATEWAY_TOKEN" >> ~/.agentforge-env
+# If you haven't created the file yet: chmod 600 ~/.agentforge-env
+```
+
+If you already created `~/.agentforge-env` in Step 6a, run the `echo` line above (reuse the same `$GATEWAY_TOKEN` from step 1, or read it from config). The gateway and any CLI that talks to it (e.g. `node dist/entry.js agent ...`) will use this token.
+
+**3. Verify:**
+
+```bash
+# Token is in config (do not print it in logs)
+jq '.gateway.auth.mode, (.gateway.auth.token != null)' ~/.clawdbot/moltbot.json
+# Should show: "token" and true
+```
+
+**Manual run:** To start the gateway by hand for testing, either `export CLAWDBOT_GATEWAY_TOKEN="$GATEWAY_TOKEN"` (or `source ~/.agentforge-env`) then `node dist/entry.js gateway run --port 18789`, or pass the token: `node dist/entry.js gateway run --port 18789 --token "$GATEWAY_TOKEN"`.
+
+---
+
+## Step 5i: Verify config is complete
+
+By this point `~/.clawdbot/moltbot.json` must contain everything needed for a full deploy. Run this check **after** completing 5a (provider), 5h (browser), and 5h2 (gateway token):
+
+```bash
+# Required: gateway (mode + auth token), tools, agents, Google provider, browser
+jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 9 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete: check gateway.mode, gateway.auth.token, tools, agents.list (9), models.providers.google, browser" end' ~/.clawdbot/moltbot.json
+```
+
+You should see `"Config OK"`. If not, re-run the step that sets the missing part (init for gateway/tools/agents, 5a for Google provider, 5h for browser, 5h2 for gateway token).
+
+**What the config contains by end of Step 5:**
+
+| Set by | Keys |
+|--------|------|
+| init (Step 4) | `gateway.mode`, `tools.exec`, `tools.agentToAgent`, `agents.list` (9 agents), `agents.defaults` (model, imageModel, budget) |
+| Step 5a | `models.providers.google` (API key + models) |
+| Step 5h | `browser.enabled`, `browser.defaultProfile`, `browser.executablePath`, `browser.headless`, `browser.noSandbox` |
+| Step 5h2 | `gateway.auth.mode`, `gateway.auth.token` (required to start the gateway) |
+
+Optional: Step 5b adds `models.providers.openai` and fallbacks; Step 5g can add Stripe under `humanInterface.agentforge.stripe`. Once the check above prints `"Config OK"`, the config is ready and you can start the gateway (Step 6).
+
+**By the end of the guide, all keys, settings, and credentials are in place:**
+
+- **In `~/.clawdbot/moltbot.json`:** All required keys and settings (gateway including **gateway.auth.token**, tools, agents, models.providers.google, browser). You supply: **Gemini API key** in Step 5a; **gateway token** in Step 5h2 (generated with `openssl rand -hex 32`).
+- **GitHub and Vercel:** Stored by `setup:github` and `setup:vercel` (e.g. `~/.bashrc`). So the gateway run by **systemd** can see them, you must add an env file and `EnvironmentFile` in Step 6a below. Optionally add `CLAWDBOT_GATEWAY_TOKEN` to that file (same value as in config) so manual runs and CLI have it.
+- **Optional:** OpenAI key (5b), Stripe keys (5g) — add if you use those features.
+
+---
+
+## Step 6: Gateway as System Service (10 minutes)
+
+### 6a. Env file for gateway (so it has GitHub + Vercel)
+
+Systemd does not source `~/.bashrc`, so the gateway process will not see `GITHUB_TOKEN` or `VERCEL_TOKEN` unless we pass them. Create an env file (use the same token values you used in Step 5e and 5f):
+
+```bash
+# If GITHUB_TOKEN and VERCEL_TOKEN are already in your environment (e.g. you ran setup:github and setup:vercel in this session and they were added to ~/.bashrc), copy them into the env file:
+cat > ~/.agentforge-env << EOF
+GITHUB_TOKEN=$GITHUB_TOKEN
+VERCEL_TOKEN=$VERCEL_TOKEN
+EOF
+chmod 600 ~/.agentforge-env
+```
+
+If not, create `~/.agentforge-env` manually and add one line per variable with the same token values you used in Step 5e and 5f, then run `chmod 600 ~/.agentforge-env`. The gateway will read this file when started by systemd (Step 6b).
+
+### 6b. Systemd unit
+
+```bash
+sudo tee /etc/systemd/system/agentforge-gateway.service > /dev/null << 'EOF'
 [Unit]
 Description=Moltbot Gateway for AgentForge
 After=network.target
@@ -660,18 +449,15 @@ After=network.target
 Type=simple
 User=agentforge
 WorkingDirectory=/home/agentforge/agentforge
-ExecStart=/usr/bin/node /home/agentforge/agentforge/moltbot.mjs gateway run --port 18789 --bind 0.0.0.0
+ExecStart=/usr/bin/node /home/agentforge/agentforge/dist/entry.js gateway run --port 18789 --bind 0.0.0.0
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=moltbot-gateway
-
-# Environment
+SyslogIdentifier=agentforge-gateway
 Environment=NODE_ENV=production
 Environment=HOME=/home/agentforge
-
-# Security hardening (optional)
+EnvironmentFile=-/home/agentforge/.agentforge-env
 NoNewPrivileges=true
 PrivateTmp=true
 
@@ -680,1129 +466,319 @@ WantedBy=multi-user.target
 EOF
 ```
 
-### 6b. Enable and Start Service
+The `EnvironmentFile=-/home/agentforge/.agentforge-env` line loads `GITHUB_TOKEN` and `VERCEL_TOKEN` (the `-` means do not fail if the file is missing).
+
+### 6c. Enable and start
 
 ```bash
-# Reload systemd
 sudo systemctl daemon-reload
-
-# Enable service (start on boot)
-sudo systemctl enable moltbot-gateway
-
-# Start service now
-sudo systemctl start moltbot-gateway
-
-# Check status
-sudo systemctl status moltbot-gateway
+sudo systemctl enable agentforge-gateway
+sudo systemctl start agentforge-gateway
+sudo systemctl status agentforge-gateway
 ```
 
-**Expected output:**
-```
-● moltbot-gateway.service - Moltbot Gateway for AgentForge
-     Loaded: loaded (/etc/systemd/system/moltbot-gateway.service; enabled)
-     Active: active (running) since ...
-```
-
-### 6c. Verify Gateway is Running
+### 6d. Check
 
 ```bash
-# Check if listening on port
 ss -ltnp | grep 18789
-
-# Check logs
-sudo journalctl -u moltbot-gateway -f
-# Press Ctrl+C to exit logs
+sudo journalctl -u agentforge-gateway -f
 ```
-
-**Expected:** Gateway is running and listening on port 18789
 
 ---
 
-## Step 7: Configure Firewall (5 minutes)
-
-### 7a. Install UFW (if not already installed)
+## Step 7: Firewall (5 minutes)
 
 ```bash
 sudo apt install -y ufw
-```
-
-### 7b. Configure Firewall Rules
-
-```bash
-# Allow SSH (IMPORTANT - do this first!)
 sudo ufw allow 22/tcp
-
-# Allow gateway port (for remote access if needed)
 sudo ufw allow 18789/tcp
-
-# Enable firewall
 sudo ufw enable
-
-# Verify
 sudo ufw status
 ```
 
-**Expected output:**
-```
-Status: active
-
-To                         Action      From
---                         ------      ----
-22/tcp                     ALLOW       Anywhere
-18789/tcp                  ALLOW       Anywhere
-```
-
-**⚠️ WARNING:** If you're accessing via SSH, make sure port 22 is allowed BEFORE enabling UFW!
+Allow SSH (22) before enabling UFW.
 
 ---
 
-## Step 8: Install Cron Jobs (3 minutes)
+## Step 8: Cron Jobs (5 minutes)
 
-### 8a. Make Scripts Executable
+Make scripts executable, then install crontab.
 
 ```bash
 cd ~/agentforge
 chmod +x scripts/*.sh
 ```
 
-### 8b. Install Cron Jobs
-
-```bash
-# Edit crontab
-crontab -e
-# Choose editor (nano is easiest for beginners)
-
-# Add these lines (copy from ~/.moltbot/agentforge-cron.txt or below):
-```
-
-**Paste this into crontab:**
+**Recommended crontab** (includes CEO heartbeat every 30 minutes; template in `~/.moltbot/agentforge-cron.txt` does not include heartbeat – add it manually):
 
 ```cron
-
-# AgentForge Automation
-# Daily board meeting at 9am
+# AgentForge - Daily Board Meeting (9am)
 0 9 * * * cd /home/agentforge/agentforge && ./scripts/board-meeting.sh >> /tmp/agentforge-board.log 2>&1
 
-# Daily CEO execution at 10am (1 hour after board meeting)
+# AgentForge - CEO Implementation (10am, after board)
 0 10 * * * cd /home/agentforge/agentforge && ./scripts/ceo-implement.sh >> /tmp/agentforge-ceo.log 2>&1
 
-# Weekly reflection (Sundays at 10pm)
+# AgentForge - CEO Heartbeat (every 30 min) – continuous oversight, workers, venture runloop, LEDGER sync
+*/30 * * * * cd /home/agentforge/agentforge && ./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
+
+# AgentForge - Weekly Reflection (Sun 10pm)
 0 22 * * 0 cd /home/agentforge/agentforge && ./scripts/weekly-reflection.sh >> /tmp/agentforge-reflection.log 2>&1
 
-# Monthly meta-learning (1st of month at 11pm)
-0 23 1 * * cd /home/agentforge/agentforge && ./scripts/monthly-learning.sh >> /tmp/agentforge-metalearning.log 2>&1
-
-# Obsidian sync (every 6 hours)
-0 */6 * * * cd /home/agentforge/agentforge && ./scripts/sync-to-obsidian.sh >> /tmp/agentforge-sync.log 2>&1
+# AgentForge - Monthly Meta-Learning (1st 11pm)
+0 23 1 * * cd /home/agentforge/agentforge && ./scripts/monthly-learning.sh >> /tmp/agentforge-learning.log 2>&1
 ```
 
-**Save and exit (Ctrl+X, then Y, then Enter in nano)**
+Install:
 
-### 8c. Verify Cron Jobs Installed
+```bash
+crontab -e
+# Paste the block above; adjust paths if your repo is elsewhere (e.g. /home/agentforge/agentforge)
+```
+
+Or append to existing crontab:
+
+```bash
+(crontab -l 2>/dev/null; cat ~/.moltbot/agentforge-cron.txt) | crontab -
+# Then crontab -e and add the CEO heartbeat line (*/30 * * * * ... ceo-heartbeat.sh ...)
+```
+
+**What the CEO heartbeat does:** Sends a heartbeat prompt to the CEO, then for each active investment in LEDGER runs `node dist/entry.js venture:tick --venture <id>`, then runs `scripts/sync-ledger.mjs`.
+
+Verify:
 
 ```bash
 crontab -l
 ```
 
-**Should show your cron jobs**
-
-
-
-
 ---
 
-## Step 9: Test the System (15 minutes)
+## Step 9: Test (10 minutes)
 
-### 9a. Test Gateway Connection
+### Gateway
 
 ```bash
-# From the VPS
 curl http://localhost:18789/health
 ```
 
-**Expected:** Some response (exact format depends on gateway implementation)
-
-### 9b. Test Agent Communication
+### CEO
 
 ```bash
 cd ~/agentforge
-node moltbot.mjs agent --agent ceo --message "Hello, what is your current capital and role?"
+node dist/entry.js agent --agent ceo --message "What is your role and current capital?"
 ```
 
-**Expected:** CEO responds explaining role and $0 capital
+### LEDGER and venture state
 
-### 9c. Test Memory System
+After first CEO run:
 
 ```bash
-node moltbot.mjs agent --agent cfo --message "Search your memory for 'treasury'. What do you know about our starting capital?"
+cat ~/.moltbot/agents/ceo/LEDGER.md
+node dist/entry.js portal
 ```
-
-**Expected:** CFO uses memory_search and explains $0 starting capital
-
-### 9d. Test Agent-to-Agent Messaging
-
-```bash
-node moltbot.mjs agent --agent ceo --message "Use sessions_send to send a message to the CFO asking about the current treasury balance."
-```
-
-**Expected:** CEO uses sessions_send tool successfully
-
-**Verify it worked:**
-```bash
-node moltbot.mjs agent --agent cfo --message "Check your message history with sessions_history. Did the CEO contact you?"
-```
-
-**Expected:** CFO confirms receiving CEO's message
 
 ---
 
 ## Step 10: First Board Meeting (10 minutes)
 
-### 10a. Trigger Board Meeting Manually
+**With TUI (interactive):**
 
-**Option 1 — Live TUI (recommended when running interactively):**
 ```bash
 cd ~/agentforge
 ./scripts/board-meeting.sh --tui
 ```
-Shows a real-time view: phase, current agent, and a short preview of each agent’s last message as they complete. Run in the foreground (not in cron).
 
-**Option 2 — Background (for cron or when you don’t need the TUI):**
+**Without TUI (e.g. cron):**
+
 ```bash
-cd ~/agentforge
 ./scripts/board-meeting.sh
 ```
 
-**This will take 5-10 minutes**
+Monitor: `tail -f /tmp/agentforge-board.log`
 
-**Monitor progress (when not using --tui):**
-```bash
-# In another SSH session
-tail -f /tmp/agentforge-board.log
-```
-
-### 10b. Check Board Decision
+Then check coordinator decision:
 
 ```bash
-node moltbot.mjs tui --session agent:coordinator:main
+node dist/entry.js tui --session agent:coordinator:main
 ```
-
-**Use arrow keys to scroll, press 'q' to exit**
-
-**Expected:** See coordinator's synthesized BOARD DECISION
 
 ---
 
-## Step 11: CEO Execution (5 minutes)
-
-### 11a. Trigger CEO Execution
+## Step 11: First CEO Execution (5 minutes)
 
 ```bash
 ./scripts/ceo-implement.sh
-```
-
-**Monitor:**
-```bash
 tail -f /tmp/agentforge-ceo.log
 ```
 
-### 11b. Check CEO's Plan
+Check CEO session and LEDGER:
 
 ```bash
-node moltbot.mjs tui --session agent:ceo:main
-```
-
-**Expected:** See CEO's execution plan
-
-### 11c. Check LEDGER
-
-```bash
+node dist/entry.js tui --session agent:ceo:main
 cat ~/.moltbot/agents/ceo/LEDGER.md
 ```
 
-**Expected:** See active investment and $0 capital tracking
+Optional: run LEDGER ↔ SQLite sync and open Investment Portal:
+
+```bash
+node scripts/sync-ledger.mjs
+node dist/entry.js portal
+```
 
 ---
 
-## Step 12: Monitor & Maintain
+## Step 12: Monitor and Maintain
 
-### Viewing Logs
+**Logs:**
 
-**Gateway logs:**
+- Gateway: `sudo journalctl -u agentforge-gateway -f`
+- Board: `tail -f /tmp/agentforge-board.log`
+- CEO: `tail -f /tmp/agentforge-ceo.log`
+- Heartbeat: `tail -f /tmp/agentforge-heartbeat.log`
+
+**Sessions / state:**
+
+- `node dist/entry.js tui --session agent:ceo:main` (or coordinator, cfo, etc.)
+- `node dist/entry.js portal` (ventures, capital, workers, logs, settings)
+- `cat ~/.moltbot/agents/ceo/LEDGER.md`
+- Human requests: `ls ~/.moltbot/human-requests/`
+
+**Restart gateway:**
+
 ```bash
-sudo journalctl -u moltbot-gateway -f
-# Press Ctrl+C to exit
+sudo systemctl restart agentforge-gateway
 ```
 
-**Board meeting logs:**
-```bash
-tail -f /tmp/agentforge-board.log
-```
+**Update code:**
 
-**CEO execution logs:**
-```bash
-tail -f /tmp/agentforge-ceo.log
-```
-
-**All recent logs:**
-```bash
-tail -100 /tmp/agentforge-*.log
-```
-
-### Checking Agent Status
-
-**View any agent's session:**
-```bash
-node moltbot.mjs tui --session agent:ceo:main
-node moltbot.mjs tui --session agent:coordinator:main
-node moltbot.mjs tui --session agent:cfo:main
-# etc.
-```
-
-**View agent memory:**
-```bash
-cat ~/.moltbot/agents/ceo/MEMORY.md
-cat ~/.moltbot/agents/cfo/MEMORY.md
-# etc.
-```
-
-**Check human requests:**
-```bash
-ls -la ~/.moltbot/human-requests/
-```
-
-### Restarting Gateway
-
-**If you need to restart:**
-```bash
-sudo systemctl restart moltbot-gateway
-sudo systemctl status moltbot-gateway
-```
-
-### Updating Code
-
-**When you make changes:**
 ```bash
 cd ~/agentforge
-git pull
+git pull --rebase origin main
 pnpm install
 pnpm build
-sudo systemctl restart moltbot-gateway
+sudo systemctl restart agentforge-gateway
 ```
-
-### Deploying the two-way board meeting update
-
-**Short upgrade-only steps:** see [VPS_UPGRADE_BOARD_TWO_WAY.md](VPS_UPGRADE_BOARD_TWO_WAY.md).
-
-The two-way consensus flow adds a **helper script** and changes the **board meeting script** so all six board members (CFO, CTO, CMO, COO, Risk, Innovation) see the analyst’s actual report before responding. The VPS needs these repo updates; config (`~/.clawdbot/moltbot.json`), gateway, and cron are unchanged.
-
-**Files that must be on the VPS:**
-
-| File | Purpose |
-|------|--------|
-| `scripts/board-get-session-message.mjs` | **New.** Reads an agent’s last assistant message from session transcript. |
-| `scripts/board-meeting.sh` | **Updated.** Runs analyst first, gets brief, then runs the six with shared analyst report, then coordinator. Optional `--tui` runs the live TUI. |
-| `scripts/board-meeting-tui.mjs` | **New.** Live TUI: same flow as the shell script but shows phase, current agent, and preview of each response in real time. Used when you run `./scripts/board-meeting.sh --tui`. |
-
-**Option A — Git (recommended)**
-
-1. On your **local machine**: commit and push the new/updated files to the branch the VPS uses (e.g. `main`):
-   ```bash
-   git add scripts/board-get-session-message.mjs scripts/board-meeting.sh scripts/board-meeting-tui.mjs
-   git commit -m "Board: two-way consensus — shared analyst brief"
-   git push origin main
-   ```
-2. On the **VPS** (as `agentforge`):
-   ```bash
-   cd ~/agentforge
-   git pull --rebase origin main
-   chmod +x scripts/board-get-session-message.mjs   # if needed
-   ```
-3. No gateway restart or cron change. Next board run (e.g. 9am cron) will use the new flow.
-
-**Option B — Copy files without Git**
-
-If the VPS does not pull from your repo, copy the two files from your dev machine:
-
-```bash
-# From your local machine (replace agentforge@VPS_IP and path if different)
-scp scripts/board-get-session-message.mjs scripts/board-meeting.sh scripts/board-meeting-tui.mjs agentforge@YOUR_VPS_IP:~/agentforge/scripts/
-```
-
-Then on the VPS:
-```bash
-cd ~/agentforge
-chmod +x scripts/board-get-session-message.mjs
-```
-
-**State directory:** The helper uses `CLAWDBOT_STATE_DIR` or `MOLTBOT_STATE_DIR` if set, else `~/.clawdbot`. Ensure the VPS runs the board script with the same state dir as the gateway (e.g. same user and env).
-
-**Quick test on VPS:**
-```bash
-cd ~/agentforge
-./scripts/board-meeting.sh
-```
-If the analyst has not run yet, the helper may return empty once; the script retries. Confirm in logs that the six members receive the shared analyst brief.
-
-**Revert (script only):** To go back to the old one-way flow, restore a backup of `scripts/board-meeting.sh` (e.g. `scripts/board-meeting.sh.bak`) and remove or ignore `scripts/board-get-session-message.mjs`. Config and gateway are untouched.
 
 ---
 
-## Step 13: Remote Access from Local Machine
+## Step 13: Remote Access
 
-**You can monitor and control AgentForge from your local machine via SSH.** To have VPS agents use models (e.g. Ollama) running on your Mac, see **13d. Connect Mac Models to VPS (Reverse SSH Tunnel)**.
+**SSH tunnel (local machine):**
 
-### 13a. SSH Tunnel (Recommended for Security)
-
-**From your local machine:**
 ```bash
-# Create SSH tunnel for gateway
 ssh -L 18789:localhost:18789 agentforge@YOUR_VPS_IP
-
-# Keep this terminal open
+# Then curl http://localhost:18789/health on local
 ```
 
-**Now from another terminal on your local machine:**
-```bash
-# You can now access the gateway as if it's running locally
-curl http://localhost:18789/health
-```
-
-### 13b. Direct SSH Commands
-
-**From your local machine:**
-```bash
-# Run agent command remotely
-ssh agentforge@YOUR_VPS_IP "cd agentforge && node moltbot.mjs agent --agent ceo --message 'Status report?'"
-
-# Check logs
-ssh agentforge@YOUR_VPS_IP "tail -100 /tmp/agentforge-board.log"
-
-# View agent memory
-ssh agentforge@YOUR_VPS_IP "cat ~/.moltbot/agents/ceo/LEDGER.md"
-```
-
-### 13c. SSHFS (Mount Remote Filesystem Locally)
-
-**On your local machine (Mac/Linux):**
-```bash
-# Install sshfs (if not installed)
-# Mac: brew install sshfs
-# Linux: sudo apt install sshfs
-
-# Mount remote directory
-mkdir -p ~/agentforge-remote
-sshfs agentforge@YOUR_VPS_IP:/home/agentforge agentforge-remote
-
-# Now you can access VPS files locally
-cat ~/agentforge-remote/.moltbot/agents/ceo/LEDGER.md
-
-# Unmount when done
-umount ~/agentforge-remote
-```
-
-### 13d. Connect Mac Models to VPS (Reverse SSH Tunnel)
-
-**Use case:** Run models (e.g. Ollama, LM Studio) on your Mac and have the VPS agents use them. The VPS has no GPU or you prefer to keep inference on your Mac.
-
-**How it works:** A **reverse SSH tunnel** makes a port on the VPS forward to a port on your Mac. The gateway and agents on the VPS then call `http://127.0.0.1:PORT` and traffic is sent over SSH to your Mac’s model API.
-
-#### 1. Run the reverse tunnel from your Mac
-
-**Ollama (default port 11434):**
+**Remote commands:**
 
 ```bash
-# From your Mac — keep this terminal open (or run in tmux/screen)
-ssh -R 11434:localhost:11434 agentforge@YOUR_VPS_IP -N
-
-# -R 11434:localhost:11434 = on the VPS, port 11434 is forwarded to this Mac’s localhost:11434
-# -N = no remote command (tunnel only)
+ssh agentforge@YOUR_VPS_IP "cd agentforge && node dist/entry.js agent --agent ceo --message 'Status?'"
 ```
 
-**Replace `YOUR_VPS_IP`** with your VPS hostname or IP. Ensure Ollama is running on your Mac (`ollama serve` or the Ollama app).
-
-**Multiple model APIs (e.g. Ollama + LM Studio):**
-
-```bash
-# Ollama on 11434, LM Studio on 1234
-ssh -R 11434:localhost:11434 -R 1234:localhost:1234 agentforge@YOUR_VPS_IP -N
-```
-
-**With background + reconnect (optional):**
-
-```bash
-# Run in background; survives disconnect if you use -f (background) and -o ServerAliveInterval
-ssh -f -N -o ServerAliveInterval=60 -R 11434:localhost:11434 agentforge@YOUR_VPS_IP
-```
-
-#### 2. Allow reverse forwarding on the VPS (one-time)
-
-Reverse tunnels are usually allowed by default. If the tunnel fails, on the VPS (as root or with sudo):
-
-```bash
-# Check that TCP forwarding is allowed (default: yes)
-sudo grep -E 'AllowTcpForwarding|GatewayPorts' /etc/ssh/sshd_config
-# AllowTcpForwarding yes   (no line or "yes" = allowed)
-# GatewayPorts no          (default; keeps -R bound to localhost on VPS, which is what we want)
-
-# If you had to change anything:
-sudo systemctl reload sshd
-```
-
-#### 3. Point VPS config at the forwarded port
-
-On the VPS, Ollama should be reached at `http://127.0.0.1:11434/v1` (localhost on the VPS = your Mac via the tunnel).
-
-**Note:** Ollama has **no API key**—it runs locally and does not authenticate. Enable it by setting `agents.defaults.model.primary` to an Ollama model (e.g. `ollama/qwen2.5:14b`) or by defining `models.providers.ollama` in config; no fake key is required.
-
-**If you use explicit Ollama provider config**, set `baseUrl` to that address:
-
-```bash
-# On the VPS
-jq '.models.providers.ollama.baseUrl = "http://127.0.0.1:11434/v1"' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
-
-If the provider is created by discovery (e.g. `OLLAMA_API_KEY` and no explicit `models.providers.ollama`), the default base URL is `http://127.0.0.1:11434/v1`. With the tunnel, that’s correct as long as the tunnel is from the Mac to this VPS (so 127.0.0.1 on the VPS is the tunnel to the Mac). If your config instead uses a hostname, set it to `127.0.0.1` for the tunnel:
-
-```bash
-# Verify config (optional)
-cat ~/.clawdbot/moltbot.json | jq '.models.providers.ollama'
-# baseUrl should be http://127.0.0.1:11434/v1 when using the tunnel
-```
-
-Restart the gateway so it picks up config (if you changed it):
-
-```bash
-sudo systemctl restart moltbot-gateway
-```
-
-#### 4. Keep the tunnel up (pick one)
-
-**Option A — Terminal (simple):** Leave the SSH session open; closing it closes the tunnel.
-
-**Option B — tmux/screen on Mac:**
-
-```bash
-# On your Mac
-tmux new -s tunnel
-ssh -R 11434:localhost:11434 agentforge@YOUR_VPS_IP -N
-# Detach: Ctrl+B then D. Reattach later: tmux attach -t tunnel
-```
-
-**Option C — autossh (Mac):**
-
-```bash
-# On your Mac: brew install autossh
-autossh -M 0 -f -N -o "ServerAliveInterval=60" -o "ServerAliveCountMax=3" -R 11434:localhost:11434 agentforge@YOUR_VPS_IP
-# -M 0 disables autossh’s own keepalive; we use ServerAliveInterval instead
-```
-
-**Option D — macOS LaunchAgent (tunnel at login):**
-
-On your Mac, create `~/Library/LaunchAgents/com.agentforge.ollama-tunnel.plist`:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.agentforge.ollama-tunnel</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/usr/bin/ssh</string>
-    <string>-N</string>
-    <string>-R</string>
-    <string>11434:localhost:11434</string>
-    <string>agentforge@YOUR_VPS_IP</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardErrorPath</key>
-  <string>/tmp/ollama-tunnel.err</string>
-  <key>StandardOutPath</key>
-  <string>/tmp/ollama-tunnel.out</string>
-</dict>
-</plist>
-```
-
-Replace `YOUR_VPS_IP`. Then:
-
-```bash
-launchctl load ~/Library/LaunchAgents/com.agentforge.ollama-tunnel.plist
-# Unload to stop: launchctl unload ~/Library/LaunchAgents/com.agentforge.ollama-tunnel.plist
-```
-
-#### 5. Test from the VPS
-
-With the tunnel running and Ollama running on your Mac:
-
-```bash
-# On the VPS
-curl -s http://127.0.0.1:11434/api/tags
-# Should return JSON list of Ollama models (or empty list if none pulled)
-```
-
-If that works, the gateway and agents can use Ollama on your Mac via the tunnel.
-
-#### Quick reference
-
-| You want                         | Command (run on Mac) |
-|----------------------------------|------------------------|
-| Tunnel Ollama to VPS             | `ssh -R 11434:localhost:11434 agentforge@VPS_IP -N` |
-| Tunnel + extra port (e.g. 1234)  | `ssh -R 11434:localhost:11434 -R 1234:localhost:1234 agentforge@VPS_IP -N` |
-| Tunnel in background             | `ssh -f -N -o ServerAliveInterval=60 -R 11434:localhost:11434 agentforge@VPS_IP` |
-
-**Summary:** Start Ollama (or other model API) on your Mac → run the reverse SSH tunnel from Mac to VPS → set VPS Ollama `baseUrl` to `http://127.0.0.1:11434/v1` if needed → restart gateway on VPS → agents on the VPS use your Mac’s models.
+**Connect Mac models (e.g. Ollama) to VPS:** Use a reverse SSH tunnel from Mac: `ssh -R 11434:localhost:11434 agentforge@YOUR_VPS_IP -N`. On VPS set Ollama `baseUrl` to `http://127.0.0.1:11434/v1` if needed. See previous versions of this guide or VPS_UPGRADE_GUIDE for full steps.
 
 ---
 
-## Step 14: Obsidian Vault Access
+## Step 14: Obsidian Vault (optional)
 
-**Option 1: Sync Vault to Local Machine**
+Sync vault from VPS to local:
 
 ```bash
-# From your local machine
 rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidian-vault/ ./agentforge-vault/
-
-# Then open ./agentforge-vault/ in Obsidian
-```
-
-**Option 2: Auto-Sync with Script**
-
-**On your local machine, create `sync-vault.sh`:**
-```bash
-#!/bin/bash
-rsync -avz --delete agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidian-vault/ ~/agentforge-vault/
-echo "Vault synced: $(date)"
-```
-
-**Make executable and run:**
-```bash
-chmod +x sync-vault.sh
-./sync-vault.sh
-
-# Open ~/agentforge-vault/ in Obsidian
-```
-
-**Add to cron for auto-sync (every hour):**
-```bash
-# On your local machine
-crontab -e
-
-# Add:
-0 * * * * /path/to/sync-vault.sh >> ~/agentforge-vault-sync.log 2>&1
 ```
 
 ---
 
-## Security Best Practices
+## Security
 
-### 1. Secure SSH Access
-
-**Use SSH keys instead of passwords:**
-
-```bash
-# On your local machine, generate key (if you don't have one)
-ssh-keygen -t ed25519
-
-# Copy to VPS
-ssh-copy-id agentforge@YOUR_VPS_IP
-
-# Now test passwordless login
-ssh agentforge@YOUR_VPS_IP
-```
-
-**Disable password authentication (optional but recommended):**
-```bash
-# On VPS as root or sudo
-sudo nano /etc/ssh/sshd_config
-
-# Find and set:
-PasswordAuthentication no
-PubkeyAuthentication yes
-
-# Save and restart SSH
-sudo systemctl restart sshd
-```
-
-### 2. Protect API Keys
-
-**Never commit API keys to git:**
-```bash
-# On VPS
-cd ~/agentforge
-echo ".moltbot/" >> .git/info/exclude
-```
-
-**Store sensitive config separately:**
-```bash
-# Keep API keys in ~/.clawdbot/moltbot.json (not in repo)
-# This file is in .gitignore by default
-```
-
-### 3. Set Up Fail2Ban (Optional)
-
-**Protect against brute force attacks:**
-```bash
-sudo apt install -y fail2ban
-sudo systemctl enable fail2ban
-sudo systemctl start fail2ban
-```
-
-### 4. Regular Updates
-
-**Create update script:**
-```bash
-cat > ~/update-system.sh << 'EOF'
-#!/bin/bash
-sudo apt update
-sudo apt upgrade -y
-sudo apt autoremove -y
-echo "System updated: $(date)"
-EOF
-
-chmod +x ~/update-system.sh
-
-# Add to weekly cron
-crontab -e
-# Add: 0 3 * * 0 ~/update-system.sh >> ~/update.log 2>&1
-```
+- Prefer SSH keys: `ssh-copy-id agentforge@YOUR_VPS_IP`
+- API keys and secrets in `~/.clawdbot/moltbot.json` or `~/.agentforge-env`; never commit these files
+- Optional: fail2ban, disable SSH password auth
 
 ---
 
 ## Troubleshooting
 
-### Gateway Won't Start
+**"Cannot find module moltbot.mjs":** Use `node dist/entry.js` for all commands (e.g. `node dist/entry.js init:agentforge`). The guide uses `dist/entry.js`; ensure `pnpm build` has been run.
 
-**Check logs:**
-```bash
-sudo journalctl -u moltbot-gateway -n 100 --no-pager
-```
+**"Gateway auth is set to token, but no token is configured":** Complete **Step 5h2** (generate a token with `openssl rand -hex 32` and set `gateway.auth.token` in config via `jq`). Then restart the gateway.
 
-**Common issues:**
+**Gateway won’t start:** `sudo journalctl -u agentforge-gateway -n 100`. Check port 18789, config JSON, and `pnpm build`.
 
-**Port in use:**
-```bash
-sudo lsof -i :18789
-# Kill the process if needed
-sudo kill -9 PID
-sudo systemctl restart moltbot-gateway
-```
+**Agent not responding:** Confirm gateway is up and API keys in `~/.clawdbot/moltbot.json`. Test: `node dist/entry.js agent --agent ceo --message "test"`.
 
-**Config error:**
-```bash
-cat ~/.clawdbot/moltbot.json | jq .
-# Fix any JSON syntax errors
-```
+**Board meeting fails:** See `tail -100 /tmp/agentforge-board.log`, run `./scripts/board-meeting.sh` manually, increase timeout in config if needed (see VPS_CONFIG_UPDATE.md).
 
-**Missing dependencies:**
-```bash
-cd ~/agentforge
-pnpm install
-pnpm build
-```
+**Cron not running:** `sudo systemctl status cron`, `crontab -l`, `grep CRON /var/log/syslog`. Run `./scripts/ceo-heartbeat.sh` and `./scripts/board-meeting.sh` by hand to verify.
 
-### Agent Not Responding
-
-**Check gateway is running:**
-```bash
-sudo systemctl status moltbot-gateway
-```
-
-**Check AI provider:**
-```bash
-# Test API key
-node moltbot.mjs agent --agent ceo --message "test"
-# If fails, check API key in ~/.clawdbot/moltbot.json
-```
-
-**Check agent workspace:**
-```bash
-ls ~/.moltbot/agents/ceo/
-# Should see SOUL.md, MEMORY.md, etc.
-```
-
-### Board Meeting Fails
-
-**If runs time out:** Increase agent timeout and restore model config. See [VPS_CONFIG_UPDATE.md](VPS_CONFIG_UPDATE.md) for exact `jq` commands (e.g. `agents.defaults.timeoutSeconds = 1800` and default model + fallbacks).
-
-**Check script logs:**
-```bash
-tail -100 /tmp/agentforge-board.log
-```
-
-**Run manually with verbose output:**
-```bash
-bash -x ~/agentforge/scripts/board-meeting.sh
-```
-
-**Check individual agent:**
-```bash
-node moltbot.mjs agent --agent analyst --message "Hello, can you respond?"
-```
-
-### Cron Jobs Not Running
-
-**Check cron is running:**
-```bash
-sudo systemctl status cron
-```
-
-**Check crontab:**
-```bash
-crontab -l
-```
-
-**Check logs:**
-```bash
-grep CRON /var/log/syslog
-```
-
-**Test script manually:**
-```bash
-cd ~/agentforge
-./scripts/board-meeting.sh
-# Check for errors
-```
+**venture:tick:** Use `node dist/entry.js venture:tick --venture <ventureId>`. Venture ID is the investment id (e.g. from LEDGER.md). Heartbeat script parses active IDs from LEDGER and runs tick for each.
 
 ---
 
-## Monitoring & Alerts
+## Backup
 
-### Basic Monitoring Script
-
-**Create monitoring script:**
-```bash
-cat > ~/monitor-agentforge.sh << 'EOF'
-#!/bin/bash
-
-echo "=== AgentForge Status Report ==="
-echo "Date: $(date)"
-echo ""
-
-# Gateway status
-echo "Gateway Status:"
-systemctl is-active moltbot-gateway || echo "❌ Gateway is DOWN"
-echo ""
-
-# Disk space
-echo "Disk Space:"
-df -h / | tail -1 | awk '{print "  Used: "$3" / "$2" ("$5")"}'
-echo ""
-
-# Memory
-echo "Memory:"
-free -h | grep Mem | awk '{print "  Used: "$3" / "$2}'
-echo ""
-
-# Recent board meetings
-echo "Recent Board Meetings:"
-tail -5 /tmp/agentforge-board.log | head -5
-echo ""
-
-# Recent CEO activity
-echo "Recent CEO Activity:"
-tail -5 /tmp/agentforge-ceo.log | head -5
-echo ""
-
-# Human requests
-REQUESTS=$(ls ~/.moltbot/human-requests/ 2>/dev/null | wc -l)
-echo "Pending Human Requests: $REQUESTS"
-echo ""
-
-# Current capital
-if [ -f ~/.moltbot/agents/ceo/LEDGER.md ]; then
-    CAPITAL=$(grep "Current Available Capital:" ~/.moltbot/agents/ceo/LEDGER.md | tail -1)
-    echo "CEO Ledger: $CAPITAL"
-fi
-
-echo ""
-echo "=== End Report ==="
-EOF
-
-chmod +x ~/monitor-agentforge.sh
-```
-
-**Run monitoring:**
-```bash
-~/monitor-agentforge.sh
-```
-
-**Add to cron (daily email report):**
-```bash
-crontab -e
-# Add (replace YOUR_EMAIL):
-0 8 * * * ~/monitor-agentforge.sh | mail -s "AgentForge Daily Report" YOUR_EMAIL
-```
-
----
-
-## Performance Optimization
-
-### 1. Enable Swap (if needed)
-
-**If you have < 8GB RAM:**
-```bash
-# Create 4GB swap
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-
-# Make permanent
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-```
-
-### 2. Optimize Node.js
-
-**Set Node.js memory limit if needed:**
-```bash
-# Edit systemd service
-sudo nano /etc/systemd/system/moltbot-gateway.service
-
-# Add under [Service]:
-Environment=NODE_OPTIONS="--max-old-space-size=2048"
-
-# Reload and restart
-sudo systemctl daemon-reload
-sudo systemctl restart moltbot-gateway
-```
-
-### 3. Log Rotation
-
-**Prevent log files from growing too large:**
-```bash
-sudo tee /etc/logrotate.d/agentforge > /dev/null << 'EOF'
-/tmp/agentforge-*.log {
-    daily
-    rotate 7
-    compress
-    missingok
-    notifempty
-    create 0644 agentforge agentforge
-}
-EOF
-```
-
----
-
-## Backup Strategy
-
-### Automated Backup Script
+Include agent workspaces, config, vault, human-requests, and venture state:
 
 ```bash
-cat > ~/backup-agentforge.sh << 'EOF'
-#!/bin/bash
-
-BACKUP_DIR=~/agentforge-backups
-DATE=$(date +%Y%m%d-%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/agentforge-$DATE.tar.gz"
-
-mkdir -p "$BACKUP_DIR"
-
-echo "Creating backup: $BACKUP_FILE"
-
-# Backup agent data, config, and vault
-tar -czf "$BACKUP_FILE" \
-    ~/.moltbot/agents/ \
-    ~/.clawdbot/moltbot.json \
-    ~/agentforge/.obsidian-vault/ \
-    ~/.moltbot/human-requests/ 2>/dev/null
-
-# Keep only last 30 backups
-ls -t "$BACKUP_DIR"/agentforge-*.tar.gz | tail -n +31 | xargs rm -f 2>/dev/null
-
-echo "Backup complete: $BACKUP_FILE"
-echo "Backup size: $(du -h $BACKUP_FILE | cut -f1)"
-EOF
-
-chmod +x ~/backup-agentforge.sh
-```
-
-**Add to cron (daily backups):**
-```bash
-crontab -e
-# Add:
-0 2 * * * ~/backup-agentforge.sh >> ~/backup.log 2>&1
-```
-
-**Sync backups to local machine:**
-```bash
-# On your local machine
-rsync -avz --progress agentforge@YOUR_VPS_IP:~/agentforge-backups/ ./agentforge-backups-local/
+tar -czf agentforge-backup-$(date +%Y%m%d).tar.gz \
+  ~/.moltbot/agents/ \
+  ~/.moltbot/ventures/ \
+  ~/.moltbot/human-requests/ \
+  ~/.clawdbot/moltbot.json \
+  ~/.agentforge-env \
+  ~/agentforge/.obsidian-vault/
 ```
 
 ---
 
 ## Quick Reference
 
-### Essential Commands
-
-**Start/Stop/Restart Gateway:**
-```bash
-sudo systemctl start moltbot-gateway
-sudo systemctl stop moltbot-gateway
-sudo systemctl restart moltbot-gateway
-sudo systemctl status moltbot-gateway
-```
-
-**View Logs:**
-```bash
-sudo journalctl -u moltbot-gateway -f          # Gateway logs
-tail -f /tmp/agentforge-board.log              # Board meetings
-tail -f /tmp/agentforge-ceo.log                # CEO execution
-```
-
-**Test Agents:**
-```bash
-node moltbot.mjs agent --agent ceo --message "Status?"
-node moltbot.mjs tui --session agent:ceo:main
-```
-
-**Manual Triggers:**
-```bash
-./scripts/board-meeting.sh      # Trigger board meeting
-./scripts/ceo-implement.sh      # Trigger CEO execution
-./scripts/sync-to-obsidian.sh   # Sync vault
-```
-
-**Check Status:**
-```bash
-~/monitor-agentforge.sh         # Full status report
-cat ~/.moltbot/agents/ceo/LEDGER.md  # Check capital
-```
-
-**Connect Mac models to VPS (reverse tunnel, run on Mac):**
-```bash
-ssh -R 11434:localhost:11434 agentforge@YOUR_VPS_IP -N
-# Then on VPS: baseUrl http://127.0.0.1:11434/v1 for Ollama. See Step 13d.
-```
+| Task | Command |
+|------|--------|
+| Gateway | `sudo systemctl start/stop/restart agentforge-gateway` |
+| Logs | `sudo journalctl -u agentforge-gateway -f`, `tail -f /tmp/agentforge-*.log` |
+| CEO | `node dist/entry.js agent --agent ceo --message "…"` |
+| Portal | `node dist/entry.js portal` |
+| Board meeting | `./scripts/board-meeting.sh` or `./scripts/board-meeting.sh --tui` |
+| CEO run | `./scripts/ceo-implement.sh` |
+| LEDGER sync | `node scripts/sync-ledger.mjs` |
+| Venture tick | `node dist/entry.js venture:tick --venture <id>` |
 
 ---
 
 ## Success Checklist
 
-**After completing this guide, verify:**
-
-- [ ] VPS updated and secure
-- [ ] Node.js 22.x installed
-- [ ] AgentForge cloned and built
-- [ ] init:agentforge completed
-- [ ] AI provider configured
+- [ ] VPS updated, non-root user `agentforge`
+- [ ] Node 22, pnpm, git, build tools, Playwright system deps
+- [ ] Playwright browser installed (`pnpx playwright install chrome`; optional: Google Chrome .deb, bird)
+- [ ] Repo cloned, `pnpm install`, `pnpm build`
+- [ ] `node dist/entry.js init:agentforge` completed
+- [ ] AI provider configured (Gemini 3 Pro + Nano Banana Pro recommended)
+- [ ] GitHub and Vercel configured
+- [ ] Browser config set for VPS (Step 5h: defaultProfile, executablePath, headless, noSandbox)
+- [ ] Gateway auth token set (Step 5h2: gateway.auth.token in config)
+- [ ] Config verified complete (Step 5i: jq check prints "Config OK")
+- [ ] Env file `~/.agentforge-env` with GITHUB_TOKEN and VERCEL_TOKEN (Step 6a) so gateway has all credentials
 - [ ] Gateway running as systemd service
-- [ ] Firewall configured
-- [ ] Cron jobs installed
-- [ ] Successfully tested CEO agent
-- [ ] Successfully tested board meeting
-- [ ] Successfully tested CEO execution
-- [ ] Can access remotely via SSH
-- [ ] Backups configured
-
-**If all checked: ✅ PRODUCTION READY!**
+- [ ] UFW: 22, 18789 allowed
+- [ ] Cron: board 9am, CEO 10am, **CEO heartbeat every 30 min**, weekly/monthly
+- [ ] Board meeting and CEO execution tested
+- [ ] LEDGER and (optional) portal checked
 
 ---
 
-## What Happens Next
+## What Runs Automatically
 
-### Automatic Operation
-
-**Daily (9am VPS time):**
-- Board meeting triggers
-- 7 board members analyze opportunities
-- Coordinator synthesizes decision
-
-**Daily (10am VPS time):**
-- CEO reads board decision
-- Plans execution
-- Spawns workers if needed
-- Begins implementation
-
-**Weekly (Sunday 10pm):**
-- All agents reflect on week
-- Update MEMORY.md
-- Improve patterns
-
-**Monthly (1st, 11pm):**
-- Deep meta-learning
-- Analyze trends
-- Set improvement goals
-
-**Every 6 hours:**
-- Vault syncs to Obsidian format
-
-### First Week Expected Results
-
-**Day 1:** First board meeting, first decision
-**Day 2-3:** CEO builds first product
-**Day 4:** Launch
-**Day 5-7:** Monitor for first sales
-**Day 8-14:** First revenue likely
-
-### Monitoring
-
-**From your local machine:**
-```bash
-# Check daily
-ssh agentforge@YOUR_VPS_IP "~/monitor-agentforge.sh"
-
-# Sync vault weekly
-rsync -avz agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidian-vault/ ~/agentforge-vault/
-# Open in Obsidian to audit
-```
+- **Daily 9am:** Board meeting → coordinator decision
+- **Daily 10am:** CEO implementation (read decision, plan, spawn workers, update LEDGER)
+- **Every 30 min:** CEO heartbeat (oversight, workers, venture runloop, LEDGER sync)
+- **Weekly (Sun 10pm):** Reflection
+- **Monthly (1st 11pm):** Meta-learning
 
 ---
 
-## Support Resources
+## Support
 
-**Documentation:**
-- `README_AGENTFORGE.md` - Complete system guide
-- `STRATEGIC_LEARNING_SYSTEM.md` - How agents learn
-- `ZERO_CAPITAL_CONSTRAINT.md` - $0 capital system
-- `UNLIMITED_OPPORTUNITY.md` - Autonomy philosophy
-
-**Testing:**
-- `PRE_LAUNCH_QA.md` - QA procedures
-- `START_TESTING_NOW.md` - Quick testing guide
-
-**Logs:**
-- `/tmp/agentforge-*.log` - Operation logs
-- `sudo journalctl -u moltbot-gateway` - Gateway logs
-- `~/.moltbot/agents/*/memory/*.jsonl` - Agent sessions
-
----
-
-## You're Ready!
-
-**Your AgentForge is now:**
-- ✅ Running 24/7 on VPS
-- ✅ Fully automated (cron jobs)git ad
-- ✅ Secured (firewall, systemd)
-- ✅ Monitored (logs, scripts)
-- ✅ Backed up (automated)
-- ✅ Remotely accessible (SSH)
-
-**The board will:**
-- Meet daily at 9am
-- Analyze opportunities
-- Make decisions
-
-**The CEO will:**
-- Execute daily at 10am
-- Build products
-- Generate revenue
-
-**You will:**
-- Monitor progress remotely
-- Review in Obsidian vault
-- Watch capital grow from $0
-
-**🚀 Let the AI board build your business empire!**
-
-
-# Create or edit the plist / service config so the service gets the env.
-# For Homebrew on macOS, often:
-launchctl setenv OLLAMA_NUM_CTX 32768
-# Then restart the Ollama app / service.
+- `README_AGENTFORGE.md`, `docs/start/ceo-quickstart.md`
+- Upgrade path: [VPS_UPGRADE_GUIDE.md](VPS_UPGRADE_GUIDE.md)
+- Two-way board flow: [VPS_UPGRADE_BOARD_TWO_WAY.md](VPS_UPGRADE_BOARD_TWO_WAY.md)

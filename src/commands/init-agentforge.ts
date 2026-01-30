@@ -32,7 +32,7 @@ export async function initAgentforgeCommand(runtime: RuntimeEnv = defaultRuntime
   runtime.log("\n✅ AgentForge initialized successfully!\n");
   runtime.log("📋 Next steps:");
   runtime.log(
-    "  1. Set AI providers: Gemini (board/CEO/image) and optionally OpenAI Codex (developer subagents): node moltbot.mjs auth choice",
+    "  1. Set AI provider: add your Gemini API key to config (see deployment guide Step 5a), or run: node dist/entry.js onboard",
   );
   runtime.log("  2. 🔑 Configure GitHub access: node moltbot.mjs setup:github (CRITICAL!)");
   runtime.log("  3. 🚀 Configure Vercel deployment: node moltbot.mjs setup:vercel (CRITICAL!)");

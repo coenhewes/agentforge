@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 
 import type { DatabaseSync } from "node:sqlite";
@@ -196,6 +197,8 @@ function now(): number {
 }
 
 export function openVentureStateStore(params: { dbPath: string }): VentureStateStore {
+  const dir = path.dirname(params.dbPath);
+  fs.mkdirSync(dir, { recursive: true });
   const sqlite = requireNodeSqlite();
   const db = new sqlite.DatabaseSync(params.dbPath);
   ensureSchema(db);
