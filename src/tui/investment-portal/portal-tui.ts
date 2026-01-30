@@ -135,13 +135,8 @@ export async function runInvestmentPortal(options?: {
   tui.addChild(root);
   tui.setFocus(inputHandler);
 
-  // Start the TUI (it runs until Ctrl+C or exit)
-  return new Promise<void>((resolve) => {
-    // TUI handles its own event loop
-    process.on("SIGINT", () => {
-      process.exit(0);
-    });
-  });
+  // Start the TUI (blocks until stopped; Ctrl+C is handled by InputHandler)
+  tui.start();
 }
 
 /**

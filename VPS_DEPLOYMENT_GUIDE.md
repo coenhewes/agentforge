@@ -319,7 +319,32 @@ Venture state is stored in SQLite per workspace. Default workspace: `~/.moltbot/
   cd ~/agentforge && node scripts/sync-ledger.mjs
   ```
   Options: `--to-sqlite`, `--to-markdown`, `--ledger <path>`, `--workspace <dir>`. The CEO heartbeat script (Step 8) runs this after each heartbeat.
-- **Stripe (optional):** Set `STRIPE_SECRET_KEY` (and optionally `STRIPE_PUBLISHABLE_KEY`) in env or in config under `humanInterface.agentforge.stripe` so revenue can sync into venture state.
+- **Stripe (optional):** So revenue can sync into venture state, set Stripe keys in one of two ways.
+
+  **Option A – Env (recommended):** Add to `~/.agentforge-env` (create the file if needed; same file used in Step 6a):
+
+  ```bash
+  echo "STRIPE_SECRET_KEY=sk_live_YOUR_KEY" >> ~/.agentforge-env
+  echo "STRIPE_PUBLISHABLE_KEY=pk_live_YOUR_KEY" >> ~/.agentforge-env
+  chmod 600 ~/.agentforge-env
+  ```
+
+  Use your real secret/publishable keys from the [Stripe Dashboard](https://dashboard.stripe.com/apikeys). The publishable key is optional; the secret key is required for sync.
+
+  **Option B – Config:** Merge Stripe into `~/.clawdbot/moltbot.json` under `humanInterface.agentforge.stripe` (keeps any existing `humanInterface.agentforge` keys):
+
+  ```bash
+  jq '.humanInterface.agentforge = ((.humanInterface.agentforge // {}) + {
+    "stripe": {
+      "enabled": true,
+      "secretKey": "sk_live_YOUR_SECRET_KEY",
+      "publicKey": "pk_live_YOUR_PUBLISHABLE_KEY"
+    }
+  })' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+  ```
+
+  Replace the placeholder strings with your keys. After a deploy with the schema that allows `humanInterface`, this key is valid; if you see "Unrecognized key: humanInterface", see Troubleshooting below.
+
 - **Investment Portal (operator UI):** From a machine with access to the VPS (or on VPS with display):
   ```bash
   node dist/entry.js portal
@@ -701,6 +726,8 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 
 **"Cannot find module moltbot.mjs":** Use `node dist/entry.js` for all commands (e.g. `node dist/entry.js init:agentforge`). The guide uses `dist/entry.js`; ensure `pnpm build` has been run.
 
+**"Unrecognized key: humanInterface":** The config schema now allows `humanInterface` (used for Stripe, heartbeat, venture runloop, etc.). Update and rebuild: `cd ~/agentforge && git pull --rebase && pnpm build`. If you previously ran `moltbot doctor --fix` and it removed `humanInterface`, re-add the Stripe block with the Option B `jq` command in Step 5g.
+
 **"Gateway auth is set to token, but no token is configured":** Complete **Step 5h2** (generate a token with `openssl rand -hex 32` and set `gateway.auth.token` in config via `jq`). Then restart the gateway.
 
 **Gateway won’t start:** `sudo journalctl -u agentforge-gateway -n 100`. Check port 18789, config JSON, and `pnpm build`.
@@ -712,6 +739,10 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 **Cron not running:** `sudo systemctl status cron`, `crontab -l`, `grep CRON /var/log/syslog`. Run `./scripts/ceo-heartbeat.sh` and `./scripts/board-meeting.sh` by hand to verify.
 
 **venture:tick:** Use `node dist/entry.js venture:tick --venture <ventureId>`. Venture ID is the investment id (e.g. from LEDGER.md). Heartbeat script parses active IDs from LEDGER and runs tick for each.
+
+**GitHub/Vercel not available to gateway:** Ensure `~/.agentforge-env` exists with `GITHUB_TOKEN` and `VERCEL_TOKEN` and the unit uses `EnvironmentFile=-/home/agentforge/.agentforge-env` (Step 6a). Restart the gateway after editing the env file.
+
+**sync-ledger "unable to open database file":** The venture-state code creates the DB directory if missing. If you still see this, check `--workspace` points to the correct venture dir (default `~/.moltbot/ventures/default/`) and that the user has write permission.
 
 ---
 
