@@ -2,13 +2,13 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MoltbotConfig } from "../config/config.js";
 import type { AuthProfileStore } from "./auth-profiles.js";
 import { saveAuthProfileStore } from "./auth-profiles.js";
 import { AUTH_STORE_VERSION } from "./auth-profiles/constants.js";
-import { runWithModelFallback } from "./model-fallback.js";
+import { __testing, runWithModelFallback } from "./model-fallback.js";
 
 function makeCfg(overrides: Partial<MoltbotConfig> = {}): MoltbotConfig {
   return {
@@ -25,6 +25,10 @@ function makeCfg(overrides: Partial<MoltbotConfig> = {}): MoltbotConfig {
 }
 
 describe("runWithModelFallback", () => {
+  beforeEach(() => {
+    __testing.clearRateLimitCooldown();
+  });
+
   it("does not fall back on non-auth errors", async () => {
     const cfg = makeCfg();
     const run = vi.fn().mockRejectedValueOnce(new Error("bad request")).mockResolvedValueOnce("ok");
@@ -508,6 +512,37 @@ describe("runWithModelFallback", () => {
     ).rejects.toThrow("aborted");
 
     expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips rate-limited primary on next run (cooldown avoids delay)", async () => {
+    const cfg = makeCfg();
+    const runFirst = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error("quota exceeded"), { status: 429 }))
+      .mockResolvedValueOnce("ok");
+
+    const result1 = await runWithModelFallback({
+      cfg,
+      provider: "openai",
+      model: "gpt-4.1-mini",
+      run: runFirst,
+    });
+    expect(result1.result).toBe("ok");
+    expect(runFirst).toHaveBeenCalledTimes(2); // primary then fallback
+
+    // Second run: primary should be skipped (in cooldown), so run is called only once with fallback.
+    const runSecond = vi.fn().mockResolvedValueOnce("ok");
+    const result2 = await runWithModelFallback({
+      cfg,
+      provider: "openai",
+      model: "gpt-4.1-mini",
+      run: runSecond,
+    });
+    expect(result2.result).toBe("ok");
+    expect(runSecond).toHaveBeenCalledTimes(1);
+    expect(runSecond.mock.calls[0]).toEqual(["anthropic", "claude-haiku-3-5"]);
+    expect(result2.provider).toBe("anthropic");
+    expect(result2.model).toBe("claude-haiku-3-5");
   });
 
   it("appends the configured primary as a last fallback", async () => {

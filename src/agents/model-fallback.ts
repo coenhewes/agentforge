@@ -20,6 +20,27 @@ import {
   resolveAuthProfileOrder,
 } from "./auth-profiles.js";
 
+/** After a 429, skip this provider/model for this long so we don't retry the primary on every run. */
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+
+/** In-memory cooldown: modelKey -> cooldownUntil (timestamp). Set when we get 429 so next runs skip primary. */
+const rateLimitCooldownUntil = new Map<string, number>();
+
+function resolveRateLimitCooldownMs(cfg: MoltbotConfig | undefined): number {
+  const raw = (cfg?.agents?.defaults?.model as { rateLimitCooldownMinutes?: number } | undefined)
+    ?.rateLimitCooldownMinutes;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return Math.min(raw * 60 * 1000, 24 * 60 * 60 * 1000); // cap 24h
+  }
+  return DEFAULT_RATE_LIMIT_COOLDOWN_MS;
+}
+
+export const __testing = {
+  clearRateLimitCooldown(): void {
+    rateLimitCooldownUntil.clear();
+  },
+};
+
 type ModelCandidate = {
   provider: string;
   model: string;
@@ -222,9 +243,22 @@ export async function runWithModelFallback<T>(params: {
     : null;
   const attempts: FallbackAttempt[] = [];
   let lastError: unknown;
+  const now = Date.now();
 
   for (let i = 0; i < candidates.length; i += 1) {
     const candidate = candidates[i] as ModelCandidate;
+    const candidateKey = modelKey(candidate.provider, candidate.model);
+    const cooldownUntil = rateLimitCooldownUntil.get(candidateKey);
+    if (typeof cooldownUntil === "number" && cooldownUntil > now) {
+      // Skip rate-limited model so we don't delay every run with a failed attempt.
+      attempts.push({
+        provider: candidate.provider,
+        model: candidate.model,
+        error: "Rate limit cooldown (skipping to avoid delay)",
+        reason: "rate_limit",
+      });
+      continue;
+    }
     if (authStore) {
       const profileIds = resolveAuthProfileOrder({
         cfg: params.cfg,
@@ -271,6 +305,11 @@ export async function runWithModelFallback<T>(params: {
         status: described.status,
         code: described.code,
       });
+      // Put provider/model in cooldown so next runs skip it and don't delay every decision.
+      if (described.reason === "rate_limit" || described.status === 429) {
+        const cooldownMs = resolveRateLimitCooldownMs(params.cfg);
+        rateLimitCooldownUntil.set(candidateKey, Date.now() + cooldownMs);
+      }
       await params.onError?.({
         provider: candidate.provider,
         model: candidate.model,

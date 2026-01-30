@@ -175,7 +175,11 @@ When Gemini hits its daily limit (429 "You exceeded your current quota"), the sy
 
 `Primary google/gemini-2.0-flash returned rate_limit (attempt 1/2), trying fallback`
 
-and the run continues on the fallback (e.g. OpenAI). Subagents spawned during that run use the same effective model (the fallback), so they do not spin up on the rate-limited primary. The TUI and assistant bubble show a short message (e.g. "HTTP 429: You exceeded your current quota...") instead of the full error JSON. If you still see repeated full "LLM error: { ... }" dumps, ensure fallbacks are configured (see [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai)) and that the gateway is running the latest build.
+and the run continues on the fallback (e.g. OpenAI). Subagents spawned during that run use the same effective model (the fallback), so they do not spin up on the rate-limited primary.
+
+**Rate-limit cooldown:** After a 429, the primary provider/model is put in cooldown (default 15 minutes). The next runs skip it and go straight to the fallback, so decisions are not delayed by retrying the rate-limited model on every run. Optional config: `agents.defaults.model.rateLimitCooldownMinutes` (number, max 1440); omit to use the 15-minute default.
+
+The TUI and assistant bubble show a short message (e.g. "HTTP 429: You exceeded your current quota...") instead of the full error JSON. If you still see repeated full "LLM error: { ... }" dumps, ensure fallbacks are configured (see [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai)) and that the gateway is running the latest build.
 
 ### Lane task error / FailoverError in logs
 
