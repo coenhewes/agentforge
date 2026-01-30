@@ -130,9 +130,11 @@ export function resolveAgentModelFallbacksOverride(
 ): string[] | undefined {
   const raw = resolveAgentConfig(cfg, agentId)?.model;
   if (!raw || typeof raw === "string") return undefined;
-  // Important: treat an explicitly provided empty array as an override to disable global fallbacks.
   if (!Object.hasOwn(raw, "fallbacks")) return undefined;
-  return Array.isArray(raw.fallbacks) ? raw.fallbacks : undefined;
+  const list = Array.isArray(raw.fallbacks) ? raw.fallbacks : undefined;
+  // Empty array = no override; use agents.defaults.model.fallbacks so default fallback applies.
+  if (list && list.length === 0) return undefined;
+  return list;
 }
 
 export function resolveAgentWorkspaceDir(cfg: MoltbotConfig, agentId: string) {

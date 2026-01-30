@@ -90,8 +90,8 @@ describe("resolveAgentConfig", () => {
     };
     expect(resolveAgentModelFallbacksOverride(cfgNoOverride, "linus")).toBe(undefined);
 
-    // Explicit empty list disables global fallbacks for that agent.
-    const cfgDisable: MoltbotConfig = {
+    // Empty list = no override; use agents.defaults.model.fallbacks.
+    const cfgEmptyFallbacks: MoltbotConfig = {
       agents: {
         list: [
           {
@@ -104,7 +104,7 @@ describe("resolveAgentConfig", () => {
         ],
       },
     };
-    expect(resolveAgentModelFallbacksOverride(cfgDisable, "linus")).toEqual([]);
+    expect(resolveAgentModelFallbacksOverride(cfgEmptyFallbacks, "linus")).toBe(undefined);
   });
 
   it("should return agent-specific sandbox config", () => {
