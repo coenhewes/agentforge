@@ -16,11 +16,13 @@ import path from "node:path";
 const LEDGER_TRUNCATE = 2500;
 const CEO_STATUS_TRUNCATE = 500;
 
+// Must match gateway/resolveStateDir (paths.ts) so we read sessions from the same place
 function resolveStateDir() {
   const env = process.env;
   const override =
-    (env.MOLTBOT_STATE_DIR && env.MOLTBOT_STATE_DIR.trim()) ||
-    (env.CLAWDBOT_STATE_DIR && env.CLAWDBOT_STATE_DIR.trim());
+    (env.OPENCLAW_STATE_DIR && env.OPENCLAW_STATE_DIR.trim()) ||
+    (env.CLAWDBOT_STATE_DIR && env.CLAWDBOT_STATE_DIR.trim()) ||
+    (env.MOLTBOT_STATE_DIR && env.MOLTBOT_STATE_DIR.trim());
   if (override) {
     const trimmed = override.trim();
     if (trimmed.startsWith("~")) {
@@ -28,13 +30,23 @@ function resolveStateDir() {
     }
     return path.resolve(trimmed);
   }
-  // AgentForge init uses ~/.moltbot for agent workspaces and LEDGER; default there when present
-  const moltbotDir = path.join(os.homedir(), ".moltbot");
-  const ledgerInMoltbot = path.join(moltbotDir, "agents", "ceo", "LEDGER.md");
-  if (fs.existsSync(ledgerInMoltbot)) {
-    return moltbotDir;
-  }
-  return path.join(os.homedir(), ".clawdbot");
+  const homedir = os.homedir();
+  const newDir = path.join(homedir, ".openclaw");
+  const legacyDirs = [
+    path.join(homedir, ".clawdbot"),
+    path.join(homedir, ".moltbot"),
+    path.join(homedir, ".moldbot"),
+  ];
+  if (fs.existsSync(newDir)) return newDir;
+  const existing = legacyDirs.find((dir) => {
+    try {
+      return fs.existsSync(dir);
+    } catch {
+      return false;
+    }
+  });
+  if (existing) return existing;
+  return newDir;
 }
 
 function extractTextFromContent(content) {
@@ -90,7 +102,12 @@ function getCeoStatus(stateDir) {
 
 function main() {
   const stateDir = resolveStateDir();
-  const ledgerPath = path.join(stateDir, "agents", "ceo", "LEDGER.md");
+  let ledgerPath = path.join(stateDir, "agents", "ceo", "LEDGER.md");
+  // AgentForge init puts workspaces in ~/.moltbot; gateway may use ~/.clawdbot for sessions
+  if (!fs.existsSync(ledgerPath)) {
+    const moltbotLedger = path.join(os.homedir(), ".moltbot", "agents", "ceo", "LEDGER.md");
+    if (fs.existsSync(moltbotLedger)) ledgerPath = moltbotLedger;
+  }
 
   let out = "";
   if (fs.existsSync(ledgerPath)) {
