@@ -792,6 +792,54 @@ rsync -avz --progress agentforge@YOUR_VPS_IP:/home/agentforge/agentforge/.obsidi
 
 ---
 
+## Optional: Telegram and WhatsApp
+
+You can add **Telegram** and/or **WhatsApp** so you (or your team) can talk to the CEO or other agents from your phone. The gateway uses the same Moltbot channel stack; you just add config and (for Telegram) a token or (for WhatsApp) a QR login.
+
+**Config file:** `~/.clawdbot/moltbot.json` (or `~/.moltbot/moltbot.json` depending on init). Add under `channels`:
+
+**Telegram**
+
+1. Create a bot with [@BotFather](https://t.me/BotFather), then copy the token.
+2. Add to config:
+   ```json
+   "channels": {
+     "telegram": {
+       "enabled": true,
+       "botToken": "YOUR_BOT_TOKEN",
+       "dmPolicy": "pairing"
+     }
+   }
+   ```
+   Or set env `TELEGRAM_BOT_TOKEN=...` (config takes precedence if both set).
+3. Restart the gateway. DM the bot; approve the pairing code on first contact.
+
+**WhatsApp**
+
+1. Add to config:
+   ```json
+   "channels": {
+     "whatsapp": {
+       "dmPolicy": "allowlist",
+       "allowFrom": ["+15551234567"]
+     }
+   }
+   ```
+2. Run `node dist/entry.js channels login` (or `moltbot channels login`) and scan the QR with WhatsApp (Linked Devices).
+3. Restart the gateway.
+
+**Route DMs to the CEO (optional):** To have DMs on a channel go to the CEO (or another agent), add a binding in config, for example:
+```json
+"bindings": [
+  { "match": { "channel": "telegram" }, "agentId": "ceo" }
+]
+```
+Then Telegram DMs are handled by the CEO session. Omit bindings to use default routing (e.g. pairing/allowlist only).
+
+**Full channel docs:** [Telegram](docs/channels/telegram), [WhatsApp](docs/channels/whatsapp). For an AgentForge-focused overview see [AgentForge channels](docs/start/agentforge-channels).
+
+---
+
 ## Security
 
 - Prefer SSH keys: `ssh-copy-id agentforge@YOUR_VPS_IP`

@@ -163,7 +163,7 @@ node moltbot.mjs dashboard
 
 **Architecture:** 7 board members analyze → Coordinator synthesizes → CEO executes → Workers build
 
-**Next:** Set up external tools (Stripe, Vercel, Google Sheets) and let it run. See [AgentForge Docs](https://docs.molt.bot/agentforge) for full guide.
+**Next:** Set up external tools (Stripe, Vercel, Google Sheets) and let it run. Optional: talk to the CEO via **Telegram** or **WhatsApp** — see [AgentForge channels](docs/start/agentforge-channels.md). Full guide: [AgentForge Docs](https://docs.molt.bot/agentforge).
 
 ---
 

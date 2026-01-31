@@ -117,6 +117,10 @@ The CEO may work on **multiple ventures at once** when each venture fits within 
 
 Omit `ventures.maxActive` for no hard limit (CEO uses judgment). Budget is always enforced by the system.
 
+### 8. Telegram / WhatsApp (optional)
+
+**When:** If you enabled Telegram or WhatsApp and want to confirm they are up. Channels start with the gateway; if the gateway is healthy and config has `channels.telegram` or `channels.whatsapp`, they are active. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) “Optional: Telegram and WhatsApp” and [docs/start/agentforge-channels.md](docs/start/agentforge-channels.md).
+
 ---
 
 ## When to intervene
@@ -274,3 +278,8 @@ Store the tarball somewhere safe (not only on the same VPS).
 For full deployment, troubleshooting, and testing, see [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md).
 
 
+## Running a Board Meeting:
+For TUI:
+```Bash
+   ./scripts/board-meeting.sh --tui
+  ```

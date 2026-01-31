@@ -32,6 +32,7 @@ Moltbot also powers [Clawd](https://clawd.me), the space‑lobster assistant.
 - **New install from zero:** [Getting Started](/start/getting-started)
 - **Guided setup (recommended):** [Wizard](/start/wizard) (`moltbot onboard`)
 - **Open the dashboard (local Gateway):** http://127.0.0.1:18789/ (or http://localhost:18789/)
+- **AgentForge (autonomous business builder):** [CEO Quick Start](/start/ceo-quickstart) for Board + CEO + workers; [AgentForge channels](/start/agentforge-channels) for Telegram/WhatsApp.
 
 If the Gateway is running on the same computer, that link opens the browser Control UI
 immediately. If it fails, start the Gateway first: `moltbot gateway`.

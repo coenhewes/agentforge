@@ -36,6 +36,7 @@ Optional but recommended:
 - Stripe account (for payments)
 - Vercel account (for deployments)
 - Google Sheets (for financial tracking)
+- **Telegram or WhatsApp** — talk to the CEO from your phone; see [AgentForge channels](/start/agentforge-channels).
 
 ---
 
@@ -684,7 +685,7 @@ Use the dashboard to monitor real-time spend.
 - [Autonomous Agents](/concepts/autonomous-agents) - Detailed agent patterns
 - [Sub-agents](/tools/subagents) - Worker spawning mechanics
 - [Heartbeat](/gateway/heartbeat) - Scheduling and cron
-- [Budget System](/configuration/budget) - Spending limits and alerts
+- [Gateway configuration](/gateway/configuration) - Config including budget and spending limits
 - [Skills](/tools/skills) - Available capabilities
 
 ---
