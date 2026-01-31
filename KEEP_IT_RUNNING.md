@@ -249,6 +249,8 @@ sudo systemctl restart agentforge-gateway
 
 If `pnpm build` is killed (OOM on small VPS), add swap and/or use the memory-limited build from [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Troubleshooting.
 
+**If the update adds a new board member** (e.g. PR Lead): re-run init so config gets the new agent, then restart the gateway: `node dist/entry.js init:agentforge` then `sudo systemctl restart agentforge-gateway`. Otherwise you may see "Unknown agent id \"pr\"" when the board meeting or CLI runs that agent.
+
 ---
 
 ## Quick command reference

@@ -24,7 +24,7 @@ Board meetings use shared evidence: all board members (CFO, CTO, CMO, COO, Risk,
 
 ### 0. Read CURRENT VENTURE STATE when present
 
-When the prompt includes a **CURRENT VENTURE STATE** block (LEDGER and optional CEO status), read it first. Use it to decide whether the board is continuing current work, killing/pivoting, or adding new ventures; then synthesize accordingly. Your synthesis can include lines like "Continue current: [venture]; New: [none]" or "Kill [X]; New: [Y]." The required BOARD DECISION format still applies.
+When the prompt includes a **CURRENT VENTURE STATE** block (LEDGER and optional CEO status), read it first. **We can run multiple active ventures at once** (LEDGER may list several INV-xxx). Use it to decide whether the board is continuing current work, killing/pivoting, or adding new ventures; then synthesize accordingly. Your synthesis can include lines like "Continue current: [venture]; New: [none]" or "Continue: [A, B]; New: [C]" or "Kill [X]; Continue: [Y]; New: [Z]." The single DECISION_JSON5 block is the **primary new venture** this meeting (one new venture, or NoNewVenture); use the human-readable summary to list which current ventures to continue and any kill/add. The required BOARD DECISION format still applies.
 
 ### 1. Collect Board Input
 
@@ -154,7 +154,7 @@ CEO: Execute this plan immediately.
 
 ### 4b. Machine-readable Decision Block (REQUIRED)
 
-After the block above, append:
+After the human-readable block (and in the NO CONSENSUS case, after the defer message), you MUST append a DECISION_JSON5 block. Automation (ceo-implement.sh) depends on it; if it is missing, the CEO run will fail. For NO CONSENSUS use the stub in section 5 Option 2.
 
 DECISION_JSON5:
 
@@ -203,7 +203,7 @@ If board members disagree significantly:
 - Note dissenting opinions in "EXECUTION NOTES"
 
 **Option 2:** Defer decision
-- If no clear consensus (3-3-1 split), output:
+- If no clear consensus (3-3-1 split), output the human-readable block below, then **you MUST still output a DECISION_JSON5 block** (use the no-new-venture stub) so automation (ceo-implement.sh) can parse it. CEO will interpret "NoNewVenture" as continue monitoring existing investments only.
   ```
   BOARD DECISION: NO CONSENSUS - Defer to next meeting.
   
@@ -213,6 +213,26 @@ If board members disagree significantly:
   - [Z] members support: [Other]
   
   CEO: Research further or wait for next board meeting.
+  ```
+
+  Then append this machine-readable block (required):
+
+  DECISION_JSON5:
+
+  ```json5
+  {
+    version: 1,
+    ventureName: "NoNewVenture",
+    businessType: "other",
+    oneLiner: "Board did not reach consensus; continue monitoring existing investments only.",
+    requiredSystems: [],
+    budgetUsd: 0,
+    timelineDays: 0,
+    successMetrics: [],
+    killSwitches: [],
+    provisioningNeeds: [],
+    executionPlan: []
+  }
   ```
 
 **Option 3:** Choose conservative option
@@ -251,9 +271,10 @@ When blocked by deadlock or missing information:
 
 - **NEVER invent information** - only synthesize what board members actually said
 - **ALWAYS use the exact format** above - CEO depends on it
-- **READ all 7 sessions** before synthesizing - don't skip anyone
+- **READ all 8 board members** before synthesizing - don't skip anyone
 - **BE CONCISE** - CEO needs clear direction, not essays
 - **HIGHLIGHT RISKS** - better to be cautious than reckless
+- **MULTIPLE VENTURES** - We can run multiple active projects at once (LEDGER can list several INV-xxx); your synthesis can continue several and add one new (or none); DECISION_JSON5 is the one new venture this meeting, or NoNewVenture
 
 ## Example Output
 

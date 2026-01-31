@@ -439,7 +439,7 @@ By this point `~/.clawdbot/moltbot.json` must contain everything needed for a fu
 
 ```bash
 # Required: gateway (mode + auth token), tools, agents, Google provider, browser
-jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 9 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete: check gateway.mode, gateway.auth.token, tools, agents.list (9), models.providers.google, browser" end' ~/.clawdbot/moltbot.json
+jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 10 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete: check gateway.mode, gateway.auth.token, tools, agents.list (10), models.providers.google, browser" end' ~/.clawdbot/moltbot.json
 ```
 
 You should see `"Config OK"`. If not, re-run the step that sets the missing part (init for gateway/tools/agents, 5a for Google provider, 5h for browser, 5h2 for gateway token).
@@ -448,7 +448,7 @@ You should see `"Config OK"`. If not, re-run the step that sets the missing part
 
 | Set by | Keys |
 |--------|------|
-| init (Step 4) | `gateway.mode`, `tools.exec`, `tools.agentToAgent`, `agents.list` (9 agents), `agents.defaults` (model, imageModel, budget) |
+| init (Step 4) | `gateway.mode`, `tools.exec`, `tools.agentToAgent`, `agents.list` (10 agents), `agents.defaults` (model, imageModel, budget) |
 | Step 5a | `models.providers.google` (API key + models) |
 | Step 5h | `browser.enabled`, `browser.defaultProfile`, `browser.executablePath`, `browser.headless`, `browser.noSandbox` |
 | Step 5h2 | `gateway.auth.mode`, `gateway.auth.token` (required to start the gateway) |
@@ -862,7 +862,7 @@ Run these on the VPS (from `~/agentforge`) to confirm everything works. All comm
 **1. Config complete**
 
 ```bash
-jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 9 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete" end' ~/.clawdbot/moltbot.json
+jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 10 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete" end' ~/.clawdbot/moltbot.json
 ```
 
 Expect: `"Config OK"`.
@@ -919,7 +919,7 @@ If any step fails, see Troubleshooting below.
 
 **Human request still pending after curl:** The gateway accepts `human.requests.respond` only over WebSocket, not HTTP. Use: `node dist/entry.js gateway call human.requests.respond --params '{"requestId":"REQ-XXXXX","action":"approved","response":"Your message."}'` (see “Respond to a human request” under Step 12).
 
-**Coordinator decision missing/invalid:** `ceo-implement.sh` requires a valid board decision from the coordinator. Run a board meeting first (Step 10: `./scripts/board-meeting.sh` or `./scripts/board-meeting.sh --tui`), then open `agent:coordinator:main` and ensure the coordinator’s latest response includes a `DECISION_JSON5` block. Only then run `./scripts/ceo-implement.sh`.
+**Coordinator decision missing/invalid:** `ceo-implement.sh` requires a valid board decision from the coordinator. Run a board meeting first (Step 10: `./scripts/board-meeting.sh` or `./scripts/board-meeting.sh --tui`), then open `agent:coordinator:main` and ensure the coordinator’s latest response includes a `DECISION_JSON5` block. Only then run `./scripts/ceo-implement.sh`. If you use `~/.moltbot` for state (AgentForge init), the decision parser defaults to that directory; avoid setting `CLAWDBOT_STATE_DIR` to a different path, or set `MOLTBOT_STATE_DIR=~/.moltbot` explicitly.
 
 **"Control UI assets not found":** Build the control UI with `pnpm ui:build` (Step 3b). Then restart the gateway so it serves `dist/control-ui/`. After that, the gateway root and health URL will serve the control UI.
 
@@ -928,6 +928,8 @@ If any step fails, see Troubleshooting below.
 **"Gateway auth is set to token, but no token is configured":** Complete **Step 5h2** (generate a token with `openssl rand -hex 32` and set `gateway.auth.token` in config via `jq`). Then restart the gateway.
 
 **Gateway won’t start:** `sudo journalctl -u agentforge-gateway -n 100`. Check port 18789, config JSON, and `pnpm build`.
+
+**Unknown agent id "pr" (or other new board member):** The gateway and CLI only know agents that are in config `agents.list`. If you added a new board member (e.g. PR Lead) by pulling code but did not re-run init, the config still has the old list. **Fix:** From repo root run `node dist/entry.js init:agentforge` to refresh config (writes all 10 agents including pr), then restart the gateway: `sudo systemctl restart agentforge-gateway`. Verify: `jq '.agents.list[].id' ~/.clawdbot/moltbot.json` (or `~/.moltbot/moltbot.json` if you use AgentForge state dir) should include `"pr"`.
 
 **Agent not responding:** Confirm gateway is up and API keys in `~/.clawdbot/moltbot.json`. Test: `node dist/entry.js agent --agent ceo --message "test"`.
 

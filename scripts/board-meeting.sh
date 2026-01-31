@@ -45,6 +45,7 @@ trap 'rm -f "$TMP_PROMPT"' EXIT
     printf '%s' "$CURRENT_STATE"
     echo ""
     echo "---"
+    echo "We may have multiple active ventures; consider how new opportunities fit the portfolio."
     echo ""
   fi
   echo "CRITICAL: Use the browser tool RIGHT NOW to research opportunities. Do not make up hypothetical ideas."
@@ -211,6 +212,7 @@ for member in "${BOARD_MEMBERS_AFTER_ANALYST[@]}"; do
     cat "$TMP_ANALYST"
     echo ""
     echo "---"
+    echo "We can run multiple projects in parallel; evaluate opportunities in that context (continue existing, kill, or add)."
     echo ""
     echo "Using the report above, ${ROLE_INSTRUCTIONS[$member]}"
   } > "$TMP_MSG"
@@ -236,7 +238,7 @@ trap 'rm -f "$TMP_PROMPT" "$TMP_ANALYST" "$TMP_MSG" "$TMP_COORD"' EXIT
     echo ""
     echo "---"
     echo ""
-    echo "Using the current state above and the board members' responses, synthesize a decision. You may recommend: continue/expand current venture(s), kill one and pivot, or add a new venture. Be explicit."
+    echo "Using the current state above and the board members' responses, synthesize a decision. We can have multiple active ventures at once; you may recommend: continue/expand current venture(s), kill one and pivot, or add a new venture (your DECISION_JSON5 is the one new venture this meeting, or NoNewVenture). Be explicit."
     echo ""
   fi
   echo "Read the latest responses from all 8 board members:"
