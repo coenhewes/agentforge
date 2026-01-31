@@ -251,6 +251,11 @@ If `pnpm build` is killed (OOM on small VPS), add swap and/or use the memory-lim
 
 **If the update adds a new board member** (e.g. PR Lead): re-run init so config gets the new agent, then restart the gateway: `node dist/entry.js init:agentforge` then `sudo systemctl restart agentforge-gateway`. Otherwise you may see "Unknown agent id \"pr\"" when the board meeting or CLI runs that agent.
 
+**What init overwrites (and what it doesn’t):**
+- **Crontab:** Init does **not** change your installed crontab. It only overwrites the **template** file `~/.moltbot/agentforge-cron.txt`. Your `crontab -l` is untouched; any custom cron lines you added stay.
+- **Config (moltbot.json):** Init **merges** with existing config but **replaces** `agents.list` (full list of 10 agents) and overwrites `agents.defaults` (model, imageModel, subagents, budget). Other keys (API keys, `gateway.auth`, browser, channels, `humanInterface`, etc.) are **preserved**. So **GitHub, Vercel, Cloudflare, and other credentials** (in config or env) are **not** touched; the system still “knows” it has access to them.
+- **Agent workspaces (~/.moltbot/agents/):** Init copies SOUL.md, AGENTS.md, HEARTBEAT.md, etc. from the repo. **LEDGER.md and MEMORY.md are preserved** when they already exist (so project/venture data and agent memory are **not** wiped on re-init). SOUL.md is overwritten (repo version wins); session transcripts live under `sessions/` and are never copied from the repo, so they stay.
+
 ---
 
 ## Quick command reference

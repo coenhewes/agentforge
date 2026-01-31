@@ -71,12 +71,15 @@ async function copyAgentWorkspaces(runtime: RuntimeEnv): Promise<void> {
   // Copy board members
   const boardMembers = ["cfo", "cto", "cmo", "coo", "analyst", "risk", "innovation", "pr"];
 
+  // Do not overwrite LEDGER.md or MEMORY.md if they already exist (preserve project data and agent memory)
+  const preserveIfExists = ["LEDGER.md", "MEMORY.md"];
+
   for (const member of boardMembers) {
     const sourcePath = path.join(sourceAgentsDir, "board", member);
     const targetPath = path.join(AGENTS_DIR, "board", member);
 
     await fs.mkdir(path.dirname(targetPath), { recursive: true });
-    await copyDirectory(sourcePath, targetPath);
+    await copyDirectory(sourcePath, targetPath, preserveIfExists);
 
     runtime.log(`  ✓ Copied board/${member}`);
   }
@@ -85,21 +88,26 @@ async function copyAgentWorkspaces(runtime: RuntimeEnv): Promise<void> {
   const ceoSource = path.join(sourceAgentsDir, "ceo");
   const ceoTarget = path.join(AGENTS_DIR, "ceo");
 
-  await copyDirectory(ceoSource, ceoTarget);
+  await copyDirectory(ceoSource, ceoTarget, preserveIfExists);
   runtime.log(`  ✓ Copied ceo`);
 
   // Copy Coordinator
   const coordinatorSource = path.join(sourceAgentsDir, "coordinator");
   const coordinatorTarget = path.join(AGENTS_DIR, "coordinator");
 
-  await copyDirectory(coordinatorSource, coordinatorTarget);
+  await copyDirectory(coordinatorSource, coordinatorTarget, preserveIfExists);
   runtime.log(`  ✓ Copied coordinator`);
 }
 
 /**
- * Recursively copy directory
+ * Recursively copy directory. If preserveIfExists is set, skip copying a file when the destination
+ * already exists and the filename is in the list (used to keep LEDGER.md and MEMORY.md on re-init).
  */
-async function copyDirectory(src: string, dest: string): Promise<void> {
+async function copyDirectory(
+  src: string,
+  dest: string,
+  preserveIfExists: string[] = [],
+): Promise<void> {
   await fs.mkdir(dest, { recursive: true });
 
   const entries = await fs.readdir(src, { withFileTypes: true });
@@ -109,9 +117,15 @@ async function copyDirectory(src: string, dest: string): Promise<void> {
     const destPath = path.join(dest, entry.name);
 
     if (entry.isDirectory()) {
-      await copyDirectory(srcPath, destPath);
+      await copyDirectory(srcPath, destPath, preserveIfExists);
     } else {
-      await fs.copyFile(srcPath, destPath);
+      const shouldPreserve =
+        preserveIfExists.length > 0 &&
+        preserveIfExists.includes(entry.name) &&
+        (await fs.access(destPath).then(() => true).catch(() => false));
+      if (!shouldPreserve) {
+        await fs.copyFile(srcPath, destPath);
+      }
     }
   }
 }
