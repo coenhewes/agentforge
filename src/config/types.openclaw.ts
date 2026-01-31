@@ -121,3 +121,6 @@ export type ConfigFileSnapshot = {
   warnings: ConfigValidationIssue[];
   legacyIssues: LegacyConfigIssue[];
 };
+
+/** Alias for OpenClawConfig; kept for AgentForge/moltbot compatibility. */
+export type MoltbotConfig = OpenClawConfig;

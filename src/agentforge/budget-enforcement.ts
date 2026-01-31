@@ -35,7 +35,7 @@ export async function getCurrentCapital(): Promise<CapitalState> {
       spentLifetime: spentMatch ? Number.parseInt(spentMatch[1], 10) : 0,
       netPosition: netMatch ? Number.parseInt(netMatch[1], 10) : 0,
     };
-  } catch (err) {
+  } catch (_err) {
     // If LEDGER.md doesn't exist or can't be read, assume $0
     return {
       available: 0,

@@ -395,7 +395,7 @@ async function buildOllamaProvider(): Promise<ProviderConfig> {
 
 export async function resolveImplicitProviders(params: {
   agentDir: string;
-  config?: MoltbotConfig;
+  config?: OpenClawConfig;
 }): Promise<ModelsConfig["providers"]> {
   const providers: Record<string, ProviderConfig> = {};
   const authStore = ensureAuthProfileStore(params.agentDir, {

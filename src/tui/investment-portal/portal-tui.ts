@@ -5,7 +5,6 @@ import { Container, ProcessTerminal, Text, TUI } from "@mariozechner/pi-tui";
 
 import { openVentureStateStore, resolveVentureDbPath } from "../../agentforge/venture-state.js";
 import { theme } from "../theme/theme.js";
-import { CapitalView } from "./views/capital-view.js";
 import { LogsView } from "./views/logs-view.js";
 import { SettingsView } from "./views/settings-view.js";
 import { VenturesView } from "./views/ventures-view.js";
@@ -147,7 +146,7 @@ class OverviewContainer extends Container {
     super();
   }
 
-  render(width: number): string[] {
+  render(_width: number): string[] {
     const lines: string[] = [];
 
     lines.push(theme.bold("\n  💰 Capital Status"));

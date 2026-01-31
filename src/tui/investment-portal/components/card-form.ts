@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { Container, Text } from "@mariozechner/pi-tui";
+import { Container } from "@mariozechner/pi-tui";
 import { theme } from "../../theme/theme.js";
 import {
   validateCardNumber,
@@ -152,7 +152,7 @@ export class CardFormContainer extends Container {
     return Object.keys(this.errors).length === 0;
   }
 
-  render(width: number): string[] {
+  render(_width: number): string[] {
     const lines: string[] = [];
 
     lines.push("");

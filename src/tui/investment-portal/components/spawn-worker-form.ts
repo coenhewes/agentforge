@@ -10,7 +10,7 @@ export class SpawnWorkerForm extends Container {
     super();
   }
 
-  render(width: number): string[] {
+  render(_width: number): string[] {
     const lines: string[] = [];
 
     lines.push("");

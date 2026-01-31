@@ -1,7 +1,6 @@
 import os from "node:os";
 import path from "node:path";
 
-import { loadConfig } from "../config/config.js";
 import { callGateway } from "../gateway/call.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../utils/message-channel.js";
 import { AGENT_LANE_NESTED } from "../agents/lanes.js";

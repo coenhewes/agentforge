@@ -3,7 +3,6 @@ import path from "node:path";
 import os from "node:os";
 
 import { openVentureStateStore, resolveVentureDbPath } from "./venture-state.js";
-import type { VentureInvestment } from "./venture-state.js";
 
 /**
  * Bidirectional sync between LEDGER.md (markdown) and venture.sqlite (structured data)
@@ -355,7 +354,7 @@ export async function bidirectionalSync(
     // SQLite is empty, import from LEDGER.md if it exists
     try {
       await syncLedgerToState(ledgerPath, workspaceDir);
-    } catch (err) {
+    } catch (_err) {
       // LEDGER.md doesn't exist or is empty, that's fine
     }
   } else {

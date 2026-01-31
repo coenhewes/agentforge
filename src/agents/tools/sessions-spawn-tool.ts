@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 
 import { Type } from "@sinclair/typebox";
 
-import { formatThinkingLevels, normalizeThinkLevel } from "../../auto-reply/thinking.js";
+import { normalizeThinkLevel } from "../../auto-reply/thinking.js";
 import { loadConfig } from "../../config/config.js";
 import { callGateway } from "../../gateway/call.js";
 import { getAgentRunContext } from "../../infra/agent-events.js";
@@ -33,15 +33,6 @@ const SessionsSpawnToolSchema = Type.Object({
   timeoutSeconds: Type.Optional(Type.Number({ minimum: 0 })),
   cleanup: optionalStringEnum(["delete", "keep"] as const),
 });
-
-function splitModelRef(ref?: string) {
-  if (!ref) return { provider: undefined, model: undefined };
-  const trimmed = ref.trim();
-  if (!trimmed) return { provider: undefined, model: undefined };
-  const [provider, model] = trimmed.split("/", 2);
-  if (model) return { provider, model };
-  return { provider: undefined, model: trimmed };
-}
 
 function normalizeModelSelection(value: unknown): string | undefined {
   if (typeof value === "string") {

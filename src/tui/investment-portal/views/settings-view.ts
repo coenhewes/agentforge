@@ -8,7 +8,7 @@ export class SettingsView extends Container {
     super();
   }
 
-  render(width: number): string[] {
+  render(_width: number): string[] {
     const lines: string[] = [];
     const config = loadConfig();
 

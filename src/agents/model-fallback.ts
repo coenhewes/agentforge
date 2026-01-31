@@ -26,7 +26,7 @@ const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 /** In-memory cooldown: modelKey -> cooldownUntil (timestamp). Set when we get 429 so next runs skip primary. */
 const rateLimitCooldownUntil = new Map<string, number>();
 
-function resolveRateLimitCooldownMs(cfg: MoltbotConfig | undefined): number {
+function resolveRateLimitCooldownMs(cfg: OpenClawConfig | undefined): number {
   const raw = (cfg?.agents?.defaults?.model as { rateLimitCooldownMinutes?: number } | undefined)
     ?.rateLimitCooldownMinutes;
   if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {

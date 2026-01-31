@@ -2,14 +2,13 @@ import chalk from "chalk";
 import { Container, Text } from "@mariozechner/pi-tui";
 import { theme } from "../../theme/theme.js";
 import type { VentureStateStore } from "../../../agentforge/venture-state.js";
-import { maskCardNumber } from "../../../agentforge/card-encryption.js";
 
 export class CapitalView extends Container {
   constructor(private store: VentureStateStore) {
     super();
   }
 
-  render(width: number): string[] {
+  render(_width: number): string[] {
     const lines: string[] = [];
 
     lines.push(theme.bold("\n  💰 Capital Status"));
