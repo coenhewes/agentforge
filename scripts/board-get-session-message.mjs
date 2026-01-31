@@ -65,22 +65,28 @@ function extractTextFromContent(content) {
     .join("\n");
 }
 
-function getLastAssistantMessage(transcriptPath) {
+function getLastAssistantMessage(transcriptPath, mustContain = null) {
   if (!fs.existsSync(transcriptPath)) return "";
   const raw = fs.readFileSync(transcriptPath, "utf-8");
   const lines = raw.split(/\r?\n/).filter((line) => line.trim());
   let lastText = "";
+  let lastWithMatch = "";
   for (const line of lines) {
     try {
       const obj = JSON.parse(line);
       if (obj && obj.type === "message" && obj.message && obj.message.role === "assistant") {
         const text = extractTextFromContent(obj.message.content);
-        if (text) lastText = text;
+        if (text) {
+          lastText = text;
+          if (mustContain && text.includes(mustContain)) lastWithMatch = text;
+        }
       }
     } catch {
       // skip invalid lines
     }
   }
+  // When mustContain is set (e.g. coordinator), prefer the last message that contains it
+  if (mustContain && lastWithMatch) return lastWithMatch;
   return lastText;
 }
 
@@ -124,7 +130,9 @@ function main() {
     ? (path.isAbsolute(sessionFile) ? sessionFile : path.join(sessionsDir, path.basename(sessionFile)))
     : path.join(sessionsDir, `${entry.sessionId}.jsonl`);
 
-  const text = getLastAssistantMessage(transcriptPath);
+  // For coordinator, use the last assistant message that contains DECISION_JSON5 (so we get the full synthesis even if the coordinator sent a follow-up after)
+  const mustContain = normalizedAgent === "coordinator" ? "DECISION_JSON5:" : null;
+  const text = getLastAssistantMessage(transcriptPath, mustContain);
   if (text) process.stdout.write(text);
 }
 

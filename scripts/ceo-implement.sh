@@ -3,11 +3,20 @@
 # CEO Implementation Script
 # CEO reads coordinator's synthesized board decision and executes
 #
+# Options:
+#   --tui, -tui   Run CEO in background and open TUI (agent:ceo:main) so you can watch live
+#
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Optional: TUI mode (run CEO in background, then open TUI to watch)
+USE_TUI=false
+if [[ "${1:-}" == "--tui" || "${1:-}" == "-tui" ]]; then
+  USE_TUI=true
+fi
 
 # CLI: prefer dist/entry.js (VPS/build), fallback to moltbot.mjs
 CLI="${REPO_ROOT}/dist/entry.js"
@@ -15,9 +24,17 @@ CLI="${REPO_ROOT}/dist/entry.js"
 
 # Validate the latest coordinator decision before triggering the CEO.
 # This fails fast when the coordinator output is missing/invalid.
-DECISION_JSON="$(node "$REPO_ROOT/scripts/parse-coordinator-decision.mjs" --agent coordinator 2>/dev/null || true)"
+PARSER_STDERR=""
+DECISION_JSON="$(node "$REPO_ROOT/scripts/parse-coordinator-decision.mjs" --agent coordinator 2> /tmp/ceo-parse-coordinator.stderr.$$ || true)"
+if [[ -n "$(cat /tmp/ceo-parse-coordinator.stderr.$$ 2>/dev/null)" ]]; then
+  PARSER_STDERR="$(cat /tmp/ceo-parse-coordinator.stderr.$$)"
+fi
+rm -f /tmp/ceo-parse-coordinator.stderr.$$
 if [[ -z "${DECISION_JSON:-}" ]]; then
   echo "[$(date)] ERROR: Coordinator decision missing/invalid. Re-run board meeting or open agent:coordinator:main and ensure it includes DECISION_JSON5." >&2
+  if [[ -n "${PARSER_STDERR:-}" ]]; then
+    echo "[$(date)] Parser said: $PARSER_STDERR" >&2
+  fi
   exit 1
 fi
 
@@ -121,6 +138,13 @@ CEOPROMPT_END
 
 # Send to CEO agent (--message-file avoids shell quoting of JSON in DECISION_JSON)
 cd "$REPO_ROOT"
-echo "[$(date)] CEO run starting (agent reading coordinator decision)..." >&2
-node "$CLI" agent --agent ceo --message-file "$CEOPROMPT_FILE"
-echo "[$(date)] CEO run finished" >&2
+if [[ "$USE_TUI" == true ]]; then
+  echo "[$(date)] CEO run starting in background; opening TUI (agent:ceo:main) so you can watch live..." >&2
+  node "$CLI" agent --agent ceo --message-file "$CEOPROMPT_FILE" >> /tmp/ceo-implement-tui.log 2>&1 &
+  sleep 2
+  exec node "$CLI" tui --session agent:ceo:main
+else
+  echo "[$(date)] CEO run starting (agent reading coordinator decision)..." >&2
+  node "$CLI" agent --agent ceo --message-file "$CEOPROMPT_FILE"
+  echo "[$(date)] CEO run finished" >&2
+fi
