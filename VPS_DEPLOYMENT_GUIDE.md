@@ -383,7 +383,10 @@ jq '.browser = ((.browser // {}) + {
   "defaultProfile": "clawd",
   "executablePath": "/usr/bin/google-chrome-stable",
   "headless": true,
-  "noSandbox": true
+  "noSandbox": true,
+  "requestTimeoutMs": 15000,
+  "remoteCdpTimeoutMs": 3000,
+  "remoteCdpHandshakeTimeoutMs": 5000
 })' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
 ```
 
@@ -395,7 +398,15 @@ jq '.browser = ((.browser // {}) + {
 cat ~/.clawdbot/moltbot.json | jq '.browser'
 ```
 
-You should see `enabled: true`, `defaultProfile: "clawd"`, `executablePath: "/usr/bin/google-chrome-stable"`, `headless: true`, `noSandbox: true`. Restart the gateway after changing config so it picks up the browser settings.
+You should see `enabled: true`, `defaultProfile: "clawd"`, `executablePath: "/usr/bin/google-chrome-stable"`, `headless: true`, `noSandbox: true`, plus timeout settings (`requestTimeoutMs`, `remoteCdpTimeoutMs`, `remoteCdpHandshakeTimeoutMs`). Restart the gateway after changing config so it picks up the browser settings.
+
+**Verify browser is working:**
+```bash
+# After gateway restart, test browser control
+node dist/entry.js browser --browser-profile clawd status
+node dist/entry.js browser --browser-profile clawd open https://example.com
+node dist/entry.js browser --browser-profile clawd snapshot
+```
 
 If you did not install Google Chrome in Step 2e, install it first, then run the `jq` command above. For other options (e.g. snap Chromium with attach-only mode), see `docs/tools/browser-linux-troubleshooting.md`.
 
@@ -438,26 +449,26 @@ jq '.gateway.auth.mode, (.gateway.auth.token != null)' ~/.clawdbot/moltbot.json
 By this point `~/.clawdbot/moltbot.json` must contain everything needed for a full deploy. Run this check **after** completing 5a (provider), 5h (browser), and 5h2 (gateway token):
 
 ```bash
-# Required: gateway (mode + auth token), tools, agents, Google provider, browser
-jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 10 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete: check gateway.mode, gateway.auth.token, tools, agents.list (10), models.providers.google, browser" end' ~/.clawdbot/moltbot.json
+# Required: gateway (mode + auth token), tools, agents, model provider (google or openai), browser
+jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 10 and (.models.providers.google or .models.providers.openai) and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete: check gateway.mode, gateway.auth.token, tools, agents.list (10), models.providers (google or openai), browser" end' ~/.clawdbot/moltbot.json
 ```
 
-You should see `"Config OK"`. If not, re-run the step that sets the missing part (init for gateway/tools/agents, 5a for Google provider, 5h for browser, 5h2 for gateway token).
+You should see `"Config OK"`. If not, re-run the step that sets the missing part (init for gateway/tools/agents, 5a for Google provider or 5b for OpenAI, 5h for browser, 5h2 for gateway token).
 
 **What the config contains by end of Step 5:**
 
 | Set by | Keys |
 |--------|------|
 | init (Step 4) | `gateway.mode`, `tools.exec`, `tools.agentToAgent`, `agents.list` (10 agents), `agents.defaults` (model, imageModel, budget) |
-| Step 5a | `models.providers.google` (API key + models) |
+| Step 5a or 5b | At least one of `models.providers.google` or `models.providers.openai` (API key + models) |
 | Step 5h | `browser.enabled`, `browser.defaultProfile`, `browser.executablePath`, `browser.headless`, `browser.noSandbox` |
 | Step 5h2 | `gateway.auth.mode`, `gateway.auth.token` (required to start the gateway) |
 
-Optional: Step 5b adds `models.providers.openai` and fallbacks; Step 5g can add Stripe under `humanInterface.agentforge.stripe`. Once the check above prints `"Config OK"`, the config is ready and you can start the gateway (Step 6).
+Optional: Step 5b adds `models.providers.openai` (and fallbacks if you use 5a); Step 5g can add Stripe under `humanInterface.agentforge.stripe`. Once the check above prints `"Config OK"`, the config is ready and you can start the gateway (Step 6).
 
 **By the end of the guide, all keys, settings, and credentials are in place:**
 
-- **In `~/.clawdbot/moltbot.json`:** All required keys and settings (gateway including **gateway.auth.token**, tools, agents, models.providers.google, browser). You supply: **Gemini API key** in Step 5a; **gateway token** in Step 5h2 (generated with `openssl rand -hex 32`).
+- **In `~/.clawdbot/moltbot.json`:** All required keys and settings (gateway including **gateway.auth.token**, tools, agents, at least one of **models.providers.google** or **models.providers.openai**, browser). You supply: **Gemini API key** in Step 5a and/or **OpenAI API key** in Step 5b; **gateway token** in Step 5h2 (generated with `openssl rand -hex 32`).
 - **GitHub and Vercel:** Stored by `setup:github` and `setup:vercel` (e.g. `~/.bashrc`). So the gateway run by **systemd** can see them, you must add an env file and `EnvironmentFile` in Step 6a below. Optionally add `CLAWDBOT_GATEWAY_TOKEN` to that file (same value as in config) so manual runs and CLI have it.
 - **Optional:** OpenAI key (5b), Stripe keys (5g) — add if you use those features.
 
@@ -862,7 +873,7 @@ Run these on the VPS (from `~/agentforge`) to confirm everything works. All comm
 **1. Config complete**
 
 ```bash
-jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 10 and .models.providers.google and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete" end' ~/.clawdbot/moltbot.json
+jq 'if .gateway.mode and .gateway.auth.token and .tools.exec and (.agents.list | length) == 10 and (.models.providers.google or .models.providers.openai) and .browser.enabled and .browser.executablePath then "Config OK" else "Config incomplete" end' ~/.clawdbot/moltbot.json
 ```
 
 Expect: `"Config OK"`.

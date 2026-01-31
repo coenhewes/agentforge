@@ -186,6 +186,75 @@ If you see **"Can't reach the clawd browser control service (timed out...)"** or
 - Optional: set `browser.requestTimeoutMs` (e.g. `15000`) in config if the first request often times out (default 10s, clamped 5–60s).
 - If the default profile (e.g. clawd) is unreachable, the client will try the other profile (e.g. chrome extension relay) once before failing.
 
+### Complete VPS Browser Setup (for consistent automation)
+
+For reliable browser control on VPS, follow this complete setup:
+
+**1. Install Google Chrome (not snap Chromium):**
+```bash
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+sudo apt --fix-broken install -y
+```
+
+**2. Install Playwright browsers:**
+```bash
+cd ~/agentforge
+pnpx playwright install chrome
+```
+
+**3. Configure browser in moltbot.json:**
+```bash
+jq '.browser = {
+  "enabled": true,
+  "defaultProfile": "clawd",
+  "executablePath": "/usr/bin/google-chrome-stable",
+  "headless": true,
+  "noSandbox": true,
+  "requestTimeoutMs": 15000,
+  "remoteCdpTimeoutMs": 3000,
+  "remoteCdpHandshakeTimeoutMs": 5000
+}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
+```
+
+**4. Restart gateway:**
+```bash
+sudo systemctl restart agentforge-gateway
+```
+
+**5. Verify browser status:**
+```bash
+# Check browser control service status
+curl -s http://127.0.0.1:18791/ | jq '{running, pid, chosenBrowser}'
+
+# Test browser startup
+curl -s -X POST http://127.0.0.1:18791/start
+curl -s http://127.0.0.1:18791/tabs
+
+# CLI test
+node dist/entry.js browser --browser-profile clawd status
+node dist/entry.js browser --browser-profile clawd open https://example.com
+node dist/entry.js browser --browser-profile clawd snapshot
+```
+
+**Browser config options:**
+| Option | Description | Recommended VPS Value |
+|--------|-------------|----------------------|
+| `enabled` | Enable browser control | `true` |
+| `defaultProfile` | Profile for agents to use | `"clawd"` |
+| `executablePath` | Path to Chrome binary | `"/usr/bin/google-chrome-stable"` |
+| `headless` | Run without GUI | `true` |
+| `noSandbox` | Required for VPS | `true` |
+| `requestTimeoutMs` | Tool call timeout | `15000` (15s) |
+| `remoteCdpTimeoutMs` | CDP HTTP timeout | `3000` (3s) |
+| `remoteCdpHandshakeTimeoutMs` | CDP WebSocket timeout | `5000` (5s) |
+
+**Troubleshooting browser issues:**
+- **"Failed to start Chrome CDP"**: Snap Chromium issue; install Google Chrome .deb
+- **Timeouts on first request**: Increase `requestTimeoutMs` to 15000-30000
+- **"Chrome extension relay is running, but no tab is connected"**: Use `defaultProfile: "clawd"` (managed browser, no extension needed on VPS)
+- **Check gateway logs**: `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -i browser`
+
 ### 429 RESOURCE_EXHAUSTED but fallback not trying OpenAI
 
 If you still see only Gemini in the footer and 429 errors after setting `agents.defaults.model.fallbacks` and deploying the fallback fix:
@@ -244,6 +313,19 @@ git pull --rebase origin main
 pnpm install
 pnpm build
 pnpm ui:build
+sudo systemctl restart agentforge-gateway
+```
+
+OR If the SOUL.md of anyrthing is updated:
+
+```bash
+cd ~/agentforge
+git pull --rebase origin main
+pnpm install
+pnpm build
+pnpm ui:build
+rm -f ~/.moltbot/agents/ceo/MEMORY.md    # Fresh memory structure
+node dist/entry.js init:agentforge        # Copy updated SOULs
 sudo systemctl restart agentforge-gateway
 ```
 
