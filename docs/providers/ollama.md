@@ -1,7 +1,7 @@
 ---
-summary: "Run Moltbot with Ollama (local LLM runtime)"
+summary: "Run OpenClaw with Ollama (local LLM runtime)"
 read_when:
-  - You want to run Moltbot with local models via Ollama
+  - You want to run OpenClaw with local models via Ollama
   - You need Ollama setup and configuration guidance
 ---
 # Ollama
@@ -87,7 +87,7 @@ To see what models are available:
 
 ```bash
 ollama list
-moltbot models list
+openclaw models list
 ```
 
 To add a new model, simply pull it with Ollama:
@@ -151,7 +151,7 @@ Use explicit config when:
 }
 ```
 
-If `OLLAMA_API_KEY` is set, you can omit `apiKey` in the provider entry and Moltbot will fill it for availability checks.
+If `OLLAMA_API_KEY` is set, you can omit `apiKey` in the provider entry and OpenClaw will fill it for availability checks.
 
 ### Custom base URL (explicit config)
 
@@ -191,7 +191,7 @@ Once configured, all your Ollama models are available:
 
 ### Reasoning models
 
-Moltbot marks models as reasoning-capable when Ollama reports `thinking` in `/api/show`:
+OpenClaw marks models as reasoning-capable when Ollama reports `thinking` in `/api/show`:
 
 ```bash
 ollama pull deepseek-r1:32b
@@ -203,7 +203,7 @@ Ollama is free and runs locally, so all model costs are set to $0.
 
 ### Context windows
 
-For auto-discovered models, Moltbot uses the context window reported by Ollama when available, otherwise it defaults to `8192`. You can override `contextWindow` and `maxTokens` in explicit provider config.
+For auto-discovered models, OpenClaw uses the context window reported by Ollama when available, otherwise it defaults to `8192`. You can override `contextWindow` and `maxTokens` in explicit provider config.
 
 ## Troubleshooting
 
@@ -223,7 +223,7 @@ curl http://localhost:11434/api/tags
 
 ### No models available
 
-Moltbot only auto-discovers models that report tool support. If your model isn't listed, either:
+OpenClaw only auto-discovers models that report tool support. If your model isn't listed, either:
 - Pull a tool-capable model, or
 - Define the model explicitly in `models.providers.ollama`.
 

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 
 describe("Ollama provider", () => {
   it("should not include ollama when no API key and no config reference", async () => {
-    const agentDir = mkdtempSync(join(tmpdir(), "clawd-test-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "moltbot-ollama-test-"));
     const providers = await resolveImplicitProviders({ agentDir });
 
     expect(providers?.ollama).toBeUndefined();
