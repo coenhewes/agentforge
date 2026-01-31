@@ -9,11 +9,17 @@
  */
 
 import { execSync, spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
+
+// Same CLI resolution as board-meeting.sh: prefer dist/entry.js (VPS/build), fallback to moltbot.mjs
+const CLI_PATH = fs.existsSync(path.join(REPO_ROOT, "dist", "entry.js"))
+  ? path.join(REPO_ROOT, "dist", "entry.js")
+  : path.join(REPO_ROOT, "moltbot.mjs");
 
 const BOARD_MEMBERS_AFTER_ANALYST = [
   "cfo",
@@ -22,6 +28,7 @@ const BOARD_MEMBERS_AFTER_ANALYST = [
   "coo",
   "risk",
   "innovation",
+  "pr",
 ];
 
 const ROLE_NAMES = {
@@ -31,6 +38,7 @@ const ROLE_NAMES = {
   coo: "COO",
   risk: "Risk Manager",
   innovation: "Innovation Lead",
+  pr: "PR Lead",
 };
 
 const ROLE_INSTRUCTIONS = {
@@ -128,6 +136,12 @@ For your ideas, provide:
 - Budget: $X
 
 Think 10x, not 2x. But ground ideas in reality. Present clearly.`,
+
+  pr: `Your job:
+1. Go to Moltbook (https://www.moltbook.com) or use the Moltbook API if MOLTBOOK_API_KEY is set.
+2. Create a short post that summarizes today's board discussion and the opportunities from the analyst report.
+3. Publish the post (do not leave as draft).
+4. In your response, state what you published (title or URL). You do not vote on ventures.`,
 };
 
 const PREVIEW_LEN = 48;
@@ -180,7 +194,7 @@ function runAgent(agentId, message) {
   return new Promise((resolve) => {
     const child = spawn(
       process.execPath,
-      ["moltbot.mjs", "agent", "--agent", agentId, "--message", message],
+      [CLI_PATH, "agent", "--agent", agentId, "--message", message],
       { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "pipe"] },
     );
     let err = "";
@@ -407,10 +421,11 @@ async function main() {
       cmo: { status: "waiting", lastMessage: "" },
       coo: { status: "waiting", lastMessage: "" },
       risk: { status: "waiting", lastMessage: "" },
-      innovation: { status: "waiting", lastMessage: "" },
-      coordinator: { status: "waiting", lastMessage: "" },
-    },
-  };
+    innovation: { status: "waiting", lastMessage: "" },
+    pr: { status: "waiting", lastMessage: "" },
+    coordinator: { status: "waiting", lastMessage: "" },
+  },
+};
 
   const redrawInterval = setInterval(() => redraw(state), REDRAW_MS);
   redraw(state);
@@ -473,7 +488,7 @@ Present your findings clearly. The coordinator will read your response.`;
 
   const coordinatorMessage = `Board Meeting ${date} - SYNTHESIZE DECISION
 
-Read the latest responses from all 7 board members:
+Read the latest responses from all 8 board members:
 - agent:analyst:main (Market Analyst's opportunities)
 - agent:cfo:main (Financial analysis)
 - agent:cto:main (Technical feasibility)
@@ -481,6 +496,7 @@ Read the latest responses from all 7 board members:
 - agent:coo:main (Operations plan)
 - agent:risk:main (Risk assessment)
 - agent:innovation:main (Alternative ideas)
+- agent:pr:main (PR Lead – Moltbook content)
 
 Board members have all seen the same analyst report and responded to it. Your task:
 1. Read each member's latest response using sessions_history
