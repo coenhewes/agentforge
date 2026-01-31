@@ -430,7 +430,9 @@ async function main() {
   const redrawInterval = setInterval(() => redraw(state), REDRAW_MS);
   redraw(state);
 
-  const analystMessage = `Board Meeting ${date} - YOUR ROLE: Market Analyst
+  const analystMessage = `Board Meeting ${date} - YOUR ROLE: Market Analyst. Ignore any previous conversation. Your ONLY task for THIS message is to research NEW market opportunities. Do NOT discuss existing projects, deliver assets, or suggest next steps for current ventures.
+
+Portfolio context: we may have existing ventures; your output must be ONLY new opportunity research (3-5 opportunities with evidence). Do not suggest waitlists, CSVs, templates, or next-step deliverables.
 
 CRITICAL: Use the browser tool RIGHT NOW to research opportunities. Do not make up hypothetical ideas.
 
@@ -472,7 +474,8 @@ Present your findings clearly. The coordinator will read your response.`;
     state.currentAgent = member;
     state.agents[member].status = "running";
     const roleName = ROLE_NAMES[member] ?? member;
-    const fullMessage = `Board Meeting ${date} - YOUR ROLE: ${roleName}\n\nHere is the Market Analyst's report:\n\n${analystBrief}\n\n---\n\nUsing the report above, ${ROLE_INSTRUCTIONS[member]}`;
+    const laneLine = `STAY IN YOUR LANE: You are ONLY the ${roleName}. Do not do other roles' jobs (no marketing if you are CFO, no tech stack if you are CMO, no ops if you are CTO, etc.). Do not act as a general AI assistant. Output ONLY your role's analysis in the format below.\n\n`;
+    const fullMessage = `Board Meeting ${date} - YOUR ROLE: ${roleName}\n\nHere is the Market Analyst's report:\n\n${analystBrief}\n\n---\n\n${laneLine}Using the report above, ${ROLE_INSTRUCTIONS[member]}`;
     await runAgent(member, fullMessage);
     state.agents[member].status = "done";
     state.agents[member].lastMessage = getLastMessage(member);

@@ -37,17 +37,10 @@ echo "[$(date)] Triggering analyst (Market Analyst researches opportunities)..."
 TMP_PROMPT=$(mktemp)
 trap 'rm -f "$TMP_PROMPT"' EXIT
 {
-  echo "Board Meeting ${DATE} - YOUR ROLE: Market Analyst"
+  echo "Board Meeting ${DATE} - YOUR ROLE: Market Analyst. Ignore any previous conversation. Your ONLY task for THIS message is to research NEW market opportunities. Do NOT discuss existing projects, deliver assets, or suggest next steps for current ventures."
   echo ""
-  if [[ -n "${CURRENT_STATE:-}" ]]; then
-    echo "CURRENT VENTURE STATE (read this first):"
-    echo "---"
-    printf '%s' "$CURRENT_STATE"
-    echo ""
-    echo "---"
-    echo "We may have multiple active ventures; consider how new opportunities fit the portfolio."
-    echo ""
-  fi
+  echo "Portfolio context: we may have existing ventures; your output must be ONLY new opportunity research (3-5 opportunities with evidence). Do not suggest waitlists, CSVs, templates, or next-step deliverables."
+  echo ""
   echo "CRITICAL: Use the browser tool RIGHT NOW to research opportunities. Do not make up hypothetical ideas."
   echo ""
   echo "YOUR TASK:"
@@ -213,6 +206,8 @@ for member in "${BOARD_MEMBERS_AFTER_ANALYST[@]}"; do
     echo ""
     echo "---"
     echo "We can run multiple projects in parallel; evaluate opportunities in that context (continue existing, kill, or add)."
+    echo ""
+    echo "STAY IN YOUR LANE: You are ONLY the ${ROLE_NAMES[$member]:-$member}. Do not do other roles' jobs (no marketing if you are CFO, no tech stack if you are CMO, no ops if you are CTO, etc.). Do not act as a general AI assistant. Output ONLY your role's analysis in the format below."
     echo ""
     echo "Using the report above, ${ROLE_INSTRUCTIONS[$member]}"
   } > "$TMP_MSG"
