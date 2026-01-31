@@ -94,6 +94,8 @@ cat ~/.moltbot/human-requests/*REQ-1875FC19* | jq .
 
 Each request file (or `human.requests.get` result) has `title`, `description`, `suggestedAction`, `priority`, `category`, and `status`. Use those to decide what to provide.
 
+**Gmail for agents:** To give agents full access to a dedicated Gmail account (read, send, search), see [Gmail agent access](docs/start/gmail-agent-access.md). Recommended: **Himalaya** (IMAP/SMTP, least fragile). Optional: Gmail Pub/Sub + gog for push-triggered wake.
+
 **If there are pending requests,** provide what’s needed (e.g. API token), set it in config, then approve:
 
 ```bash
@@ -324,8 +326,7 @@ git pull --rebase origin main
 pnpm install
 pnpm build
 pnpm ui:build
-rm -f ~/.moltbot/agents/ceo/MEMORY.md    # Fresh memory structure
-node dist/entry.js init:agentforge        # Copy updated SOULs
+node dist/entry.js init:agentforge  
 sudo systemctl restart agentforge-gateway
 ```
 

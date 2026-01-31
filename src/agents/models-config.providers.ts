@@ -177,6 +177,7 @@ export function normalizeGoogleModelId(id: string): string {
 }
 
 function normalizeGoogleProvider(provider: ProviderConfig): ProviderConfig {
+  if (!Array.isArray(provider.models) || provider.models.length === 0) return provider;
   let mutated = false;
   const models = provider.models.map((model) => {
     const nextId = normalizeGoogleModelId(model.id);
@@ -202,6 +203,15 @@ export function normalizeProviders(params: {
   for (const [key, provider] of Object.entries(providers)) {
     const normalizedKey = key.trim();
     let normalizedProvider = provider;
+
+    // Skip partial/empty provider entries (e.g. google: {} when using OpenAI-only).
+    if (
+      !normalizedProvider.baseUrl?.trim() ||
+      !Array.isArray(normalizedProvider.models) ||
+      normalizedProvider.models.length === 0
+    ) {
+      continue;
+    }
 
     // Fix common misconfig: apiKey set to "${ENV_VAR}" instead of "ENV_VAR".
     if (
