@@ -76,6 +76,7 @@ export function createSessionsSpawnTool(opts?: {
       "Spawn a background sub-agent run in an isolated session and announce the result back to the requester chat.",
     parameters: SessionsSpawnToolSchema,
     execute: async (_toolCallId, args) => {
+      const o = opts ?? {};
       const params = args as Record<string, unknown>;
       const task = readStringParam(params, "task", { required: true });
       const label = typeof params.label === "string" ? params.label.trim() : "";
@@ -87,10 +88,10 @@ export function createSessionsSpawnTool(opts?: {
           ? (params.cleanup as "keep" | "delete")
           : "keep";
       const requesterOrigin = normalizeDeliveryContext({
-        channel: opts?.agentChannel,
-        accountId: opts?.agentAccountId,
-        to: opts?.agentTo,
-        threadId: opts?.agentThreadId,
+        channel: o.agentChannel,
+        accountId: o.agentAccountId,
+        to: o.agentTo,
+        threadId: o.agentThreadId,
       });
       const runTimeoutSeconds = (() => {
         const explicit =
@@ -109,7 +110,7 @@ export function createSessionsSpawnTool(opts?: {
 
       const cfg = loadConfig();
       const { mainKey, alias } = resolveMainSessionAlias(cfg);
-      const requesterSessionKey = opts?.agentSessionKey;
+      const requesterSessionKey = o.agentSessionKey;
       // NOTE: Nesting restriction removed to allow hierarchical agent spawning (CEO -> PM -> Developer)
       // Sub-agents can now spawn their own sub-agents for autonomous agent hierarchies
       const requesterInternalKey = requesterSessionKey
@@ -126,7 +127,7 @@ export function createSessionsSpawnTool(opts?: {
       });
 
       const requesterAgentId = normalizeAgentId(
-        opts?.requesterAgentIdOverride ?? parseAgentSessionKey(requesterInternalKey)?.agentId,
+        o.requesterAgentIdOverride ?? parseAgentSessionKey(requesterInternalKey)?.agentId,
       );
       const targetAgentId = requestedAgentId
         ? normalizeAgentId(requestedAgentId)
@@ -155,7 +156,7 @@ export function createSessionsSpawnTool(opts?: {
       const childSessionKey = `agent:${targetAgentId}:subagent:${crypto.randomUUID()}`;
       const spawnedByKey = requesterInternalKey;
       const targetAgentConfig = resolveAgentConfig(cfg, targetAgentId);
-      const runId = opts?.runId;
+      const runId = o.runId;
       const runCtx = runId ? getAgentRunContext(runId) : undefined;
       const effectiveModelRef =
         runCtx?.effectiveProvider && runCtx?.effectiveModel
@@ -220,9 +221,9 @@ export function createSessionsSpawnTool(opts?: {
             timeout: runTimeoutSeconds > 0 ? runTimeoutSeconds : undefined,
             label: label || undefined,
             spawnedBy: spawnedByKey,
-            groupId: opts?.agentGroupId ?? undefined,
-            groupChannel: opts?.agentGroupChannel ?? undefined,
-            groupSpace: opts?.agentGroupSpace ?? undefined,
+            groupId: o.agentGroupId ?? undefined,
+            groupChannel: o.agentGroupChannel ?? undefined,
+            groupSpace: o.agentGroupSpace ?? undefined,
           },
           timeoutMs: 10_000,
         })) as { runId?: string };

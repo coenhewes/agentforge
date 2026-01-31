@@ -20,31 +20,51 @@ DATE=$(date +"%Y-%m-%d")
 
 cd "$REPO_ROOT"
 
+# CLI: prefer dist/entry.js (VPS/build), fallback to moltbot.mjs
+CLI="${REPO_ROOT}/dist/entry.js"
+[[ -f "$CLI" ]] || CLI="${REPO_ROOT}/moltbot.mjs"
+
 echo "[$(date)] Starting board meeting for ${DATE}..." >&2
+
+# Capture current venture state (LEDGER + optional CEO status) for analyst and coordinator
+CURRENT_STATE=$(node "$REPO_ROOT/scripts/board-get-current-state.mjs" 2>/dev/null || true)
 
 # Analyst runs first; other six see analyst's report (shared context)
 BOARD_MEMBERS_AFTER_ANALYST=("cfo" "cto" "cmo" "coo" "risk" "innovation")
 
 # --- Phase 1: Run analyst only ---
 echo "[$(date)] Triggering analyst (Market Analyst researches opportunities)..." >&2
-node moltbot.mjs agent --agent analyst --message "Board Meeting ${DATE} - YOUR ROLE: Market Analyst
-
-CRITICAL: Use the browser tool RIGHT NOW to research opportunities. Do not make up hypothetical ideas.
-
-YOUR TASK:
-1. Browse Reddit (r/SaaS, r/Entrepreneur, r/startups) for customer pain points
-2. Check Product Hunt for trending products and competitor pricing
-3. Search Twitter/X for complaints about existing tools
-4. Identify 3 REAL market opportunities with DATA
-
-For each opportunity, provide:
-- Problem: What pain point? (with real quotes/evidence)
-- Market size: Estimated TAM
-- Competitors: Who exists? What do they charge? What do reviews say?
-- Gap: What's missing?
-- Est. ROI: Based on competitor pricing
-
-Present your findings clearly. The coordinator will read your response." > /dev/null 2>&1 \
+TMP_PROMPT=$(mktemp)
+trap 'rm -f "$TMP_PROMPT"' EXIT
+{
+  echo "Board Meeting ${DATE} - YOUR ROLE: Market Analyst"
+  echo ""
+  if [[ -n "${CURRENT_STATE:-}" ]]; then
+    echo "CURRENT VENTURE STATE (read this first):"
+    echo "---"
+    printf '%s' "$CURRENT_STATE"
+    echo ""
+    echo "---"
+    echo ""
+  fi
+  echo "CRITICAL: Use the browser tool RIGHT NOW to research opportunities. Do not make up hypothetical ideas."
+  echo ""
+  echo "YOUR TASK:"
+  echo "1. Browse Reddit (r/SaaS, r/Entrepreneur, r/startups) for customer pain points"
+  echo "2. Check Product Hunt for trending products and competitor pricing"
+  echo "3. Search Twitter/X for complaints about existing tools"
+  echo "4. Identify 3 REAL market opportunities with DATA"
+  echo ""
+  echo "For each opportunity, provide:"
+  echo "- Problem: What pain point? (with real quotes/evidence)"
+  echo "- Market size: Estimated TAM"
+  echo "- Competitors: Who exists? What do they charge? What do reviews say?"
+  echo "- Gap: What's missing?"
+  echo "- Est. ROI: Based on competitor pricing"
+  echo ""
+  echo "Present your findings clearly. The coordinator will read your response."
+} > "$TMP_PROMPT"
+node "$CLI" agent --agent analyst --message "$(cat "$TMP_PROMPT")" > /dev/null 2>&1 \
   || echo "  Warning: analyst failed" >&2
 
 # Wait for analyst to finish writing; then get last message (with retries)
@@ -68,7 +88,7 @@ fi
 # Use temp files to avoid escaping issues with analyst content
 TMP_ANALYST=$(mktemp)
 TMP_MSG=$(mktemp)
-trap 'rm -f "$TMP_ANALYST" "$TMP_MSG"' EXIT
+trap 'rm -f "$TMP_PROMPT" "$TMP_ANALYST" "$TMP_MSG"' EXIT
 printf '%s' "${ANALYST_BRIEF:-}" > "$TMP_ANALYST"
 
 # Role-specific instructions (after "Using the report above")
@@ -191,7 +211,7 @@ for member in "${BOARD_MEMBERS_AFTER_ANALYST[@]}"; do
     echo ""
     echo "Using the report above, ${ROLE_INSTRUCTIONS[$member]}"
   } > "$TMP_MSG"
-  node moltbot.mjs agent --agent "$member" --message "$(cat "$TMP_MSG")" > /dev/null 2>&1 \
+  node "$CLI" agent --agent "$member" --message "$(cat "$TMP_MSG")" > /dev/null 2>&1 \
     || echo "  Warning: $member failed" >&2
 done
 
@@ -201,25 +221,40 @@ sleep 5
 
 # --- Phase 3: Coordinator synthesizes from all 7 ---
 echo "[$(date)] Triggering coordinator to synthesize decision..." >&2
-node moltbot.mjs agent --agent coordinator --message "Board Meeting ${DATE} - SYNTHESIZE DECISION
-
-Read the latest responses from all 7 board members:
-- agent:analyst:main (Market Analyst's opportunities)
-- agent:cfo:main (Financial analysis)
-- agent:cto:main (Technical feasibility)
-- agent:cmo:main (Marketing strategy)
-- agent:coo:main (Operations plan)
-- agent:risk:main (Risk assessment)
-- agent:innovation:main (Alternative ideas)
-
-Board members have all seen the same analyst report and responded to it. Your task:
-1. Read each member's latest response using sessions_history
-2. Extract key points from each
-3. Identify which opportunity has the most support
-4. Synthesize into a clear BOARD DECISION using the exact format from your SOUL.md
-5. Include all necessary details: budget, timeline, build plan, marketing plan, kill thresholds
-
-The CEO will read YOUR decision to execute. Be clear and actionable." > /dev/null 2>&1
+TMP_COORD=$(mktemp)
+trap 'rm -f "$TMP_PROMPT" "$TMP_ANALYST" "$TMP_MSG" "$TMP_COORD"' EXIT
+{
+  echo "Board Meeting ${DATE} - SYNTHESIZE DECISION"
+  echo ""
+  if [[ -n "${CURRENT_STATE:-}" ]]; then
+    echo "CURRENT VENTURE STATE (read this first):"
+    echo "---"
+    printf '%s' "$CURRENT_STATE"
+    echo ""
+    echo "---"
+    echo ""
+    echo "Using the current state above and the board members' responses, synthesize a decision. You may recommend: continue/expand current venture(s), kill one and pivot, or add a new venture. Be explicit."
+    echo ""
+  fi
+  echo "Read the latest responses from all 7 board members:"
+  echo "- agent:analyst:main (Market Analyst's opportunities)"
+  echo "- agent:cfo:main (Financial analysis)"
+  echo "- agent:cto:main (Technical feasibility)"
+  echo "- agent:cmo:main (Marketing strategy)"
+  echo "- agent:coo:main (Operations plan)"
+  echo "- agent:risk:main (Risk assessment)"
+  echo "- agent:innovation:main (Alternative ideas)"
+  echo ""
+  echo "Board members have all seen the same analyst report and responded to it. Your task:"
+  echo "1. Read each member's latest response using sessions_history"
+  echo "2. Extract key points from each"
+  echo "3. Identify which opportunity has the most support"
+  echo "4. Synthesize into a clear BOARD DECISION using the exact format from your SOUL.md"
+  echo "5. Include all necessary details: budget, timeline, build plan, marketing plan, kill thresholds"
+  echo ""
+  echo "The CEO will read YOUR decision to execute. Be clear and actionable."
+} > "$TMP_COORD"
+node "$CLI" agent --agent coordinator --message "$(cat "$TMP_COORD")" > /dev/null 2>&1
 
 echo "[$(date)] Board meeting complete. Coordinator has synthesized decision." >&2
 echo "[$(date)] CEO can now read agent:coordinator:main for the board decision." >&2

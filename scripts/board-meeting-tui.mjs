@@ -131,7 +131,7 @@ Think 10x, not 2x. But ground ideas in reality. Present clearly.`,
 };
 
 const PREVIEW_LEN = 48;
-const REDRAW_MS = 1000;
+const REDRAW_MS = 2000; // Redraw interval; skip redraw when nothing changed to reduce flicker
 const TABLE_WIDTH = 78;
 const CONVERSATION_WIDTH = TABLE_WIDTH - 2;
 const CONVERSATION_LINES = 18;
@@ -251,6 +251,16 @@ function statusStyled(status) {
   return `${s.grayDim}${padded}${s.reset}`;
 }
 
+function stateFingerprint(state) {
+  const parts = [state.phase, state.currentAgent, state.conversationLog.length];
+  const allAgents = ["analyst", ...BOARD_MEMBERS_AFTER_ANALYST, "coordinator"];
+  for (const id of allAgents) {
+    const entry = state.agents[id];
+    parts.push(entry?.status ?? "", (entry?.lastMessage ?? "").slice(0, 200));
+  }
+  return parts.join("\0");
+}
+
 function redraw(state) {
   // Live preview: refresh last message for the agent currently running
   if (state.currentAgent) {
@@ -269,6 +279,10 @@ function redraw(state) {
     state.conversationLog.push(...wrapText(entry.lastMessage, CONVERSATION_WIDTH));
     state.loggedAgents.add(id);
   }
+
+  const fingerprint = stateFingerprint(state);
+  if (state._lastRedrawFingerprint === fingerprint) return;
+  state._lastRedrawFingerprint = fingerprint;
 
   clearAndHome();
 
@@ -368,7 +382,7 @@ function redraw(state) {
     process.stdout.write(`${s.gray}  ╰${"─".repeat(CONVERSATION_WIDTH)}╯${s.reset}\n`);
   }
 
-  process.stdout.write(`\n${s.grayDim}  Updates every 1s · Run in foreground for live view${s.reset}\n`);
+  process.stdout.write(`\n${s.grayDim}  Updates when state changes · Run in foreground for live view${s.reset}\n`);
 }
 
 async function main() {

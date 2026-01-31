@@ -364,7 +364,7 @@ const ERROR_PATTERNS = {
     "exceeded your current quota",
     "resource has been exhausted",
     "quota exceeded",
-    "resource_exhausted",
+    "resource_exhausted", // Gemini 429 status text
     "usage limit",
   ],
   overloaded: [/overloaded_error|"type"\s*:\s*"overloaded_error"/i, "overloaded"],

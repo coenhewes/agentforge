@@ -89,7 +89,7 @@ sudo apt install -y \
 
 ### 2e. Google Chrome (for managed browser on Linux)
 
-On Ubuntu, the default Chromium package is a snap stub and causes CDP (browser control) issues. For agent browser automation you need Google Chrome installed:
+On Ubuntu, the default Chromium package is a snap stub and causes CDP (browser control) issues. For agent browser automation use **Google Chrome** (not Chromium). In Step 5h you will set `browser.executablePath`, `browser.headless: true`, and `browser.noSandbox: true` in config.
 
 ```bash
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
@@ -136,7 +136,7 @@ ls -la dist/   # should include entry.js, cli.js, agentforge/, control-ui/, etc.
 - **`pnpm build`** – CLI and gateway runtime.
 - **`pnpm ui:build`** – Gateway control UI (web UI). Without it, the gateway will report "Control UI assets not found" when you open it in a browser or hit the health/root URL.
 
-The guide uses **`node dist/entry.js`** for all CLI commands. That file is created by `pnpm build` and works even if `moltbot.mjs` is not present in the clone.
+The guide uses **`node dist/entry.js`** for all CLI commands. That file is created by `pnpm build` and works even if `moltbot.mjs` is not present in the clone. From repo root you can also run **`pnpm moltbot`** (or `pnpm dev`) when developing; on the VPS use **`node dist/entry.js`** so cron and scripts (e.g. `board-meeting.sh`, `ceo-heartbeat.sh`) work after build.
 
 ### 3c. Playwright browsers (Chrome recommended)
 
@@ -201,7 +201,7 @@ The seven board members (analyst, cfo, cmo, coo, cto, risk, innovation) live und
 
 ## Step 5: Configure AI Provider and config (5 minutes)
 
-The config file **`~/.clawdbot/moltbot.json`** is created by init (Step 4) and then filled in here. Complete 5a (AI provider), 5h (browser), 5h2 (gateway auth token), and 5i (verify) so the config is **fully ready** before you start the gateway (Step 6).
+The config file **`~/.clawdbot/moltbot.json`** is created by init (Step 4) and then filled in here. Complete 5a (AI provider), 5h (browser), 5h2 (gateway auth token), and 5i (verify) so the config is **fully ready** before you start the gateway (Step 6). The schema supports optional **`humanInterface`** (e.g. for Stripe, ventures, capital); if you see **"Unrecognized key: humanInterface"**, update the repo and run `pnpm build` so the config validator includes it (see Troubleshooting).
 
 ### 5a. Recommended: Google (Gemini 3 Pro + Nano Banana Pro)
 
@@ -273,6 +273,8 @@ jq '.models.providers.openai = {
 ```
 
 Codex: use `node dist/entry.js models auth login --provider openai-codex` so the CEO can pass the Codex model when spawning coding workers. No extra cron change; CEO SOUL already instructs this.
+
+**Model fallback and context window:** Set `agents.defaults.model.fallbacks` so when the primary model fails (e.g. 429 quota), the system tries the next. Example: primary Gemini 3 Pro, fallback `openai/gpt-5-mini` (see 5b). Ensure fallback models have sufficient context window for your prompts; model definitions in config include `contextWindow` and `maxTokens`.
 
 ### 5c. Other providers (alternatives to Gemini)
 
@@ -358,6 +360,8 @@ Venture state is stored in SQLite per workspace. Default workspace: `~/.moltbot/
   ```
 
   Replace the placeholder strings with your keys. After a deploy with the schema that allows `humanInterface`, this key is valid; if you see "Unrecognized key: humanInterface", see Troubleshooting below.
+
+  **Check Stripe keys:** If using env, ensure `STRIPE_SECRET_KEY` is in `~/.agentforge-env` and the gateway unit uses `EnvironmentFile` (Step 6a). If using config, run `jq '.humanInterface.agentforge.stripe' ~/.clawdbot/moltbot.json` — you should see `enabled: true` and `secretKey` (never log or paste the key). Keys are at [Stripe Dashboard → API keys](https://dashboard.stripe.com/apikeys).
 
 - **Investment Portal (operator UI):** From a machine with access to the VPS (or on VPS with display):
   ```bash
@@ -548,7 +552,7 @@ cd ~/agentforge
 chmod +x scripts/*.sh
 ```
 
-**Recommended crontab** (includes CEO heartbeat every 30 minutes; template in `~/.moltbot/agentforge-cron.txt` does not include heartbeat – add it manually):
+**Recommended crontab** (includes CEO heartbeat every 30 minutes; template in `~/.moltbot/agentforge-cron.txt` does not include heartbeat – add it manually). Format: `minute hour day-of-month month day-of-week command` (e.g. `0 9 * * *` = 9am daily). Use one line per job; no line breaks inside a line.
 
 ```cron
 # AgentForge - Daily Board Meeting (9am)
@@ -712,6 +716,8 @@ Use these to see how the CEO and workers are building the business:
 - `cat ~/.moltbot/agents/ceo/LEDGER.md`
 - Human requests: `ls ~/.moltbot/human-requests/`
 
+**Read pending human requests from CLI:** List with `ls ~/.moltbot/human-requests/` or `node dist/entry.js gateway call human.requests.list --params '{}'`. Read one with `cat ~/.moltbot/human-requests/*REQ-XXXXX* | jq .` or `node dist/entry.js gateway call human.requests.get --params '{"requestId":"REQ-XXXXX"}'`. Each request has `title`, `description`, `suggestedAction`, `priority`, `category`, `status`.
+
 **Respond to a human request (e.g. REQ-XXXXX approved):** The gateway accepts `human.requests.respond` only over WebSocket, not HTTP. Use the CLI (from repo root, with gateway running):
 
 ```bash
@@ -726,7 +732,7 @@ Replace `REQ-XXXXX` and the response text. To verify: `cat ~/.moltbot/human-requ
 sudo systemctl restart agentforge-gateway
 ```
 
-**Update code:**
+**Update code (after pushing changes to GitHub):** On the VPS, from repo root:
 
 ```bash
 cd ~/agentforge
@@ -879,6 +885,8 @@ If any step fails, see Troubleshooting below.
 **Board meeting fails:** See `tail -100 /tmp/agentforge-board.log`, run `./scripts/board-meeting.sh` manually, increase timeout in config if needed (see VPS_CONFIG_UPDATE.md).
 
 **Cron not running:** `sudo systemctl status cron`, `crontab -l`, `grep CRON /var/log/syslog`. Run `./scripts/ceo-heartbeat.sh` and `./scripts/board-meeting.sh` by hand to verify.
+
+**"bad minute" or crontab install fails:** Each line must be exactly five time fields then the command (e.g. `0 9 * * * cd /home/agentforge/agentforge && ./scripts/board-meeting.sh ...`). Do not paste lines with extra spaces, comments in the middle, or broken lines. Use `crontab -e` and type or paste the block from this guide; ensure paths match your user and repo (e.g. `/home/agentforge/agentforge`).
 
 **venture:tick:** Use `node dist/entry.js venture:tick --venture <ventureId>`. Venture ID is the investment id (e.g. from LEDGER.md). Heartbeat script parses active IDs from LEDGER and runs tick for each.
 

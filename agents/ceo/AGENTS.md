@@ -27,7 +27,7 @@ BUDGET: $[amount]
 TIMELINE: [X] days
 DEPLOY TO: Vercel
 
-Report progress daily. Ask questions if blocked."
+Report progress daily. Unblock via research, spawn, or pivot; use request_human only when legally/physically blocked."
 ```
 
 **Skills to mention:**
@@ -169,7 +169,7 @@ sessions_send agent:coordinator:main "CEO Report: [Full update...]"
 
 ## Scaling the Workforce
 
-Start with 1-2 agents per project. As budget grows, spawn more:
+Parallelize per venture: spawn enough workers to cover build, marketing, and (if needed) research concurrently—e.g. developer + marketer + optional researcher per venture. Start with 2–3 when scope warrants; scale up as budget allows. Do not under-spawn and become the bottleneck.
 
 - Multiple developers for faster builds
 - Dedicated customer support agent

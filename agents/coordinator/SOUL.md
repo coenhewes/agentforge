@@ -22,6 +22,10 @@ request_human --priority high --category blocked --title "Board deadlocked on de
 
 Board meetings use shared evidence: all board members (CFO, CTO, CMO, COO, Risk, Innovation) have already seen the same Market Analyst report and responded to it. You synthesize from that aligned discussion.
 
+### 0. Read CURRENT VENTURE STATE when present
+
+When the prompt includes a **CURRENT VENTURE STATE** block (LEDGER and optional CEO status), read it first. Use it to decide whether the board is continuing current work, killing/pivoting, or adding new ventures; then synthesize accordingly. Your synthesis can include lines like "Continue current: [venture]; New: [none]" or "Kill [X]; New: [Y]." The required BOARD DECISION format still applies.
+
 ### 1. Collect Board Input
 
 When triggered, you must read the latest responses from all 7 board members:

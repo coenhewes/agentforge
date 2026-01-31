@@ -89,7 +89,11 @@ node dist/entry.js gateway call human.requests.respond --params '{"requestId":"R
 
 Replace `REQ-XXXXX` and the response text. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Step 12 for details.
 
-### 5. Investments and capital (optional)
+### 5. Subagent concurrency limit
+
+Spawned workers share a **global concurrency limit**: `agents.defaults.subagents.maxConcurrent` (default **8**). At most 8 worker runs at once; more spawns queue. If the CEO should run more workers in parallel, raise the limit in config (e.g. `agents.defaults.subagents.maxConcurrent: 16`) and restart the gateway. The default is defined in [src/config/agent-limits.ts](src/config/agent-limits.ts) as `DEFAULT_SUBAGENT_MAX_CONCURRENT`.
+
+### 6. Investments and capital (optional)
 
 **When:** When you want to see what’s being built and spent.
 
@@ -99,7 +103,7 @@ cat ~/.moltbot/agents/ceo/LEDGER.md
 
 Shows active ventures, spend, revenue, and status. For a TUI: `node dist/entry.js portal` (run `node scripts/sync-ledger.mjs` first so portal matches LEDGER).
 
-### 6. CEO multi-venture (optional)
+### 7. CEO multi-venture (optional)
 
 The CEO may work on **multiple ventures at once** when each venture fits within available capital and the CEO has capacity (as defined in the CEO SOUL). To cap concurrency, set a hard limit in config:
 
