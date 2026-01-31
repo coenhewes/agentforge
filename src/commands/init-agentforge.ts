@@ -277,6 +277,9 @@ async function setupCronJobs(runtime: RuntimeEnv): Promise<void> {
 # AgentForge - CEO Implementation (10am, after board meeting)
 0 10 * * * cd ${repoRoot} && ${repoRoot}/scripts/ceo-implement.sh >> /tmp/agentforge-ceo.log 2>&1
 
+# AgentForge - CEO Heartbeat (every 30 min) - continuous oversight, workers, venture tick, LEDGER sync
+*/30 * * * * cd ${repoRoot} && ${repoRoot}/scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
+
 # AgentForge - Weekly Reflection (Sundays at 10pm)
 0 22 * * 0 cd ${repoRoot} && ${repoRoot}/scripts/weekly-reflection.sh >> /tmp/agentforge-reflection.log 2>&1
 

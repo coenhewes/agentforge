@@ -28,6 +28,12 @@ function resolveStateDir() {
     }
     return path.resolve(trimmed);
   }
+  // AgentForge init uses ~/.moltbot for agent workspaces and LEDGER; default there when present
+  const moltbotDir = path.join(os.homedir(), ".moltbot");
+  const ledgerInMoltbot = path.join(moltbotDir, "agents", "ceo", "LEDGER.md");
+  if (fs.existsSync(ledgerInMoltbot)) {
+    return moltbotDir;
+  }
   return path.join(os.homedir(), ".clawdbot");
 }
 

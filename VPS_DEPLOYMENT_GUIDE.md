@@ -503,11 +503,17 @@ Environment=HOME=/home/agentforge
 EnvironmentFile=-/home/agentforge/.agentforge-env
 NoNewPrivileges=true
 PrivateTmp=true
+# Optional: resource limits for long unattended runs (adjust for your VPS)
+# MemoryMax=2G
+# LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
 EOF
 ```
+
+- **Restart policy:** `Restart=always` and `RestartSec=10` make systemd restart the gateway after a crash or OOM so it does not stay down until you intervene.
+- **Optional resource limits:** On small VPS, uncomment `MemoryMax=2G` (or lower) to cap gateway memory so the box does not OOM; set `LimitNOFILE=65536` if you hit “too many open files” under load. Then run `sudo systemctl daemon-reload` and `sudo systemctl restart agentforge-gateway`.
 
 The `EnvironmentFile=-/home/agentforge/.agentforge-env` line loads `GITHUB_TOKEN` and `VERCEL_TOKEN` (the `-` means do not fail if the file is missing).
 
@@ -552,7 +558,7 @@ cd ~/agentforge
 chmod +x scripts/*.sh
 ```
 
-**Recommended crontab** (includes CEO heartbeat every 30 minutes; template in `~/.moltbot/agentforge-cron.txt` does not include heartbeat – add it manually). Format: `minute hour day-of-month month day-of-week command` (e.g. `0 9 * * *` = 9am daily). Use one line per job; no line breaks inside a line.
+**Recommended crontab** (includes CEO heartbeat every 30 minutes; the template in `~/.moltbot/agentforge-cron.txt` written by `init:agentforge` includes all lines below). Format: `minute hour day-of-month month day-of-week command` (e.g. `0 9 * * *` = 9am daily). Use one line per job; no line breaks inside a line.
 
 ```cron
 # AgentForge - Daily Board Meeting (9am)
@@ -582,7 +588,6 @@ Or append to existing crontab:
 
 ```bash
 (crontab -l 2>/dev/null; cat ~/.moltbot/agentforge-cron.txt) | crontab -
-# Then crontab -e and add the CEO heartbeat line (*/30 * * * * ... ceo-heartbeat.sh ...)
 ```
 
 **What the CEO heartbeat does:** Sends a heartbeat prompt to the CEO, then for each active investment in LEDGER runs `node dist/entry.js venture:tick --venture <id>`, then runs `scripts/sync-ledger.mjs`.
@@ -636,6 +641,8 @@ cd ~/agentforge
 ```bash
 ./scripts/board-meeting.sh
 ```
+
+**State directory for board meeting:** The board meeting uses `scripts/board-get-current-state.mjs` to inject CURRENT VENTURE STATE (LEDGER + optional CEO status) into analyst and coordinator prompts. It defaults to `~/.moltbot` when `~/.moltbot/agents/ceo/LEDGER.md` exists (AgentForge init uses this path); otherwise it uses `~/.clawdbot`. To force a specific directory, set `MOLTBOT_STATE_DIR` (or `CLAWDBOT_STATE_DIR`) in the environment before the board meeting (e.g. in crontab: `MOLTBOT_STATE_DIR=/home/agentforge/.moltbot` at the start of the board-meeting line, or export it in a wrapper script).
 
 Monitor: `tail -f /tmp/agentforge-board.log`
 
@@ -941,6 +948,8 @@ If any step fails, see Troubleshooting below.
 **GitHub/Vercel not available to gateway:** Ensure `~/.agentforge-env` exists with `GITHUB_TOKEN` and `VERCEL_TOKEN` and the unit uses `EnvironmentFile=-/home/agentforge/.agentforge-env` (Step 6a). Restart the gateway after editing the env file.
 
 **sync-ledger "unable to open database file":** The venture-state code creates the DB directory if missing. If you still see this, check `--workspace` points to the correct venture dir (default `~/.moltbot/ventures/default/`) and that the user has write permission.
+
+**Log and disk growth:** Cron logs (`/tmp/agentforge-*.log`) and gateway logs (journald) can grow over time. For long unattended runs, see [KEEP_IT_RUNNING.md](KEEP_IT_RUNNING.md) “Log and disk growth” (truncate/rotate cron logs; limit journal size with `journald.conf`). If disk fills, cron may stop and the gateway may fail; check with `df -h`.
 
 **Build killed or fails (OOM / CPU):** Exit code 137 or “Killed” usually means the process was killed (often OOM). On a small VPS, add swap first (e.g. 2G), then run the build with a memory limit and low priority: `nice -n 19 NODE_OPTIONS=--max-old-space-size=1536 pnpm build` then `pnpm ui:build`. If needed: restrict to one CPU with `taskset -c 0`, or build on your Mac and rsync `dist/` to the VPS (`pnpm build && pnpm ui:build` on Mac, then `rsync -avz dist/ agentforge@YOUR_VPS_IP:~/agentforge/dist/`), then on the VPS only restart the gateway.
 

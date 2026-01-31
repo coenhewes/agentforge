@@ -24,6 +24,8 @@ This ledger tracks all investments, their performance, and outcomes.
 
 ## Active Investments
 
+Use **INV-xxx** for the ID column (e.g. INV-001, INV-002). The CEO heartbeat script parses these IDs to run `venture:tick` for each active investment; other formats are ignored.
+
 | ID | Product Name | Category | Board Decision | Budget | Spent | Revenue | ROI | Kill Threshold | Days Remaining | Status |
 |----|--------------|----------|----------------|--------|-------|---------|-----|----------------|----------------|--------|
 | - | - | - | - | - | - | - | - | - | - | - |

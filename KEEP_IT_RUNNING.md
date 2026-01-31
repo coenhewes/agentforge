@@ -19,6 +19,19 @@ Cron must be running and the gateway must be up. One gateway restart or one miss
 
 ---
 
+## Pre-production test checklist (before leaving it for a week)
+
+Run this once after deployment or after a VPS upgrade, before unattended operation:
+
+- [ ] **Gateway running and healthy** — `sudo systemctl status agentforge-gateway`, `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/` (expect `200` or `302`).
+- [ ] **Cron installed** — Board 9am, CEO 10am, **CEO heartbeat every 30 min**, weekly/monthly if desired. `crontab -l` should show all lines (template in `~/.moltbot/agentforge-cron.txt` includes them after `init:agentforge`).
+- [ ] **State dir for board meeting** — Board meeting script finds LEDGER at `~/.moltbot/agents/ceo/LEDGER.md` by default when that path exists; otherwise set `MOLTBOT_STATE_DIR` (or `CLAWDBOT_STATE_DIR`) where cron runs the board meeting. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Step 10.
+- [ ] **Model fallbacks** — CEO (and board if desired) have `agents.defaults.model.fallbacks` (or per-agent fallbacks) set so 429/rate limits don’t stall the loop. Verify with `jq '.agents.defaults.model' ~/.clawdbot/moltbot.json` (or your config path).
+- [ ] **LEDGER and venture IDs** — `~/.moltbot/agents/ceo/LEDGER.md` exists; active investments use **INV-xxx** in the first column so `ceo-heartbeat.sh` can run `venture:tick` for each.
+- [ ] **Dry run** — Run `./scripts/board-meeting.sh`, then `./scripts/ceo-implement.sh`, then `./scripts/ceo-heartbeat.sh`. Confirm coordinator decision is valid (DECISION_JSON5), CEO runs and updates LEDGER, and venture tick runs for any INV-xxx in Active Investments.
+
+---
+
 ## What to check (and how often)
 
 ### 1. Gateway is up
@@ -251,6 +264,17 @@ If `pnpm build` is killed (OOM on small VPS), add swap and/or use the memory-lim
 | LEDGER | `cat ~/.moltbot/agents/ceo/LEDGER.md` |
 | Portal (TUI) | `node dist/entry.js portal` |
 | Approve human request | `node dist/entry.js gateway call human.requests.respond --params '{"requestId":"REQ-XXX","action":"approved","response":"..."}'` |
+
+---
+
+## Log and disk growth
+
+Cron logs (`/tmp/agentforge-board.log`, `/tmp/agentforge-ceo.log`, `/tmp/agentforge-heartbeat.log`, etc.) and gateway logs (journald) can grow over time. For a week or more of unattended runs:
+
+- **Cron logs:** Optionally truncate or rotate. Example: keep only the last 10,000 lines: `tail -n 10000 /tmp/agentforge-heartbeat.log > /tmp/agentforge-heartbeat.log.tmp && mv /tmp/agentforge-heartbeat.log.tmp /tmp/agentforge-heartbeat.log`. Or use logrotate with a config that rotates `/tmp/agentforge-*.log` by size or daily.
+- **Gateway logs:** journald rotates by default; limit size with `journald.conf` (e.g. `SystemMaxUse=100M` for the journal). View recent: `sudo journalctl -u agentforge-gateway -n 500`.
+
+If disk fills up, cron may stop writing and the gateway may fail; check disk with `df -h` and free space in `/tmp` and the journal.
 
 ---
 

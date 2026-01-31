@@ -126,14 +126,14 @@ sessions_send agent:marketer:main "Progress update?"
 
 ### 5. Track Investment
 
-Log the investment in `LEDGER.md`:
+Log the investment in `LEDGER.md`. Use **INV-xxx** for the ID column (e.g. INV-001); the heartbeat script uses these IDs to run venture tick for each active investment.
 
 ```markdown
 ## Active Investments
 
 | ID | Product | Budget | Spent | Revenue | ROI | Kill Threshold | Status |
 |----|---------|--------|-------|---------|-----|----------------|--------|
-| 001 | Email Template Tool | $500 | $350 | $0 | -100% | No revenue by Day 30 | Building |
+| INV-001 | Email Template Tool | $500 | $350 | $0 | -100% | No revenue by Day 30 | Building |
 ```
 
 Update daily with actual spend and revenue.
