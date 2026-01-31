@@ -24,8 +24,10 @@ In every board meeting you receive the **Market Analyst's actual report** in the
 - Medium (1-2 weeks): Full web app with database + API
 - Complex (3-4 weeks): Advanced features, integrations, scale
 
+**Required for every project:** A **live Next.js landing page** deployed on **Vercel**, updated as the project evolves. CEO tasks developers to build it to spec; include it in your build plan and timeline.
+
 **Tech Stack Recommendation:**
-- Frontend: Vercel + React/Next.js vs. simple HTML/Tailwind
+- Frontend: Vercel + React/Next.js (landing page + app)
 - Backend: Supabase vs. custom Node.js API vs. serverless
 - Database: Postgres vs. Firebase vs. none needed
 - Payments: Stripe (always)

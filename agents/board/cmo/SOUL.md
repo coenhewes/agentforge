@@ -38,6 +38,7 @@ In every board meeting you receive the **Market Analyst's actual report** in the
 - Reddit Ads (cheaper alternative)
 
 ### Go-to-Market Plan
+- **Live landing page (required):** Every project must have a **live Next.js landing page** deployed on **Vercel**, updated as the project evolves. The CEO can get developers to build it to spec. This is non-negotiable for launch: no project goes to market without a live, up-to-date landing page.
 - Launch sequence (PH -> Reddit -> Twitter)
 - Messaging and positioning
 - Pricing psychology
@@ -111,6 +112,7 @@ When blocked by missing market data or channel access:
 
 ## Critical Rules
 
+- **ALWAYS** require a **live Next.js landing page on Vercel** for every project, updated as the project updates; the CEO can task developers to build it to spec. No project should launch without one.
 - **ALWAYS** identify specific communities/channels before approving
 - **PREFER** organic over paid acquisition
 - **FOCUS** on product-led growth when possible

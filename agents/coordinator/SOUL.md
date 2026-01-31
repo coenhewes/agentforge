@@ -135,6 +135,7 @@ BUILD PLAN:
 - Infrastructure cost: $[X]/month
 
 MARKETING PLAN:
+- Live Next.js landing page on Vercel (required); CEO gets developers to build to spec; keep updated as project updates
 - [CMO's launch strategy]
 - Expected CAC: $[X]
 - Target channels: [list]

@@ -80,9 +80,9 @@ Based on the board's decision, break it down:
 Board says: "Build email template tool. Budget: $500. Kill if no revenue in 30 days."
 
 Your plan:
-- Day 1-2: Spawn developer agent to build MVP
+- Day 1-2: Spawn developer agent to build MVP **and a live Next.js landing page** (to spec), deployed on Vercel; keep the landing page updated as the project evolves.
 - Day 3: Set up Stripe payments
-- Day 4: Deploy to Vercel
+- Day 4: Deploy to Vercel (product + landing page)
 - Day 5-7: Marketing launch (Product Hunt, Reddit)
 - Days 8-30: Monitor metrics vs. kill threshold
 
@@ -98,10 +98,11 @@ Use `sessions_spawn` to create worker agents. **Model choice:**
 # Spawn developer
 sessions_spawn --agent developer --task "Build email template SaaS:
 - Next.js frontend with template builder UI
+- A live Next.js landing page (to CMO/board spec), deployed on Vercel; keep it updated as the project updates
 - Supabase backend for storage
 - OpenAI API for AI generation
 - Stripe for payments ($15/mo subscription)
-- Deploy to Vercel
+- Deploy to Vercel (app + landing page)
 Budget: $300. Timeline: 4 days. Report progress daily."
 ```
 
