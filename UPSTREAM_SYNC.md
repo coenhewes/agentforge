@@ -37,7 +37,8 @@ On conflict or when upstream **deletes** a file, **keep our version** for:
 | **Config / types** | Human-interface and venture-related entries (e.g. `src/config/types.human-interface.ts`) |
 | **Cron / scripts** | `scripts/board-meeting.sh`, `scripts/ceo-heartbeat.sh`, `scripts/ceo-implement.sh`, `scripts/sync-ledger.mjs`, `scripts/sync-to-obsidian.sh`, `scripts/parse-coordinator-decision.mjs`, `scripts/parse-worker-status.mjs`, `scripts/board-*.mjs` |
 | **Docs** | `KEEP_IT_RUNNING.md`, `VPS_DEPLOYMENT_GUIDE.md`, `VPS_UPGRADE_GUIDE.md`, `AGENTFORGE_CAPABILITIES.md`, and CEO/board/AgentForge-specific docs under `docs/` |
-| **Agents / content** | `agents/` (ceo, board, coordinator), AgentForge-specific `templates/` |
+| **Agents / content** | `agents/` (ceo, board, coordinator) — **SOUL.md, AGENTS.md, MEMORY.md, LEDGER.md, HEARTBEAT.md** per agent; AgentForge-specific `templates/` |
+| **Repo guidelines** | Root `AGENTS.md` (repo rules for AI): keep moltbot repo URL, docs.molt.bot, `moltbot` CLI, and `~/.clawdbot` paths; do not adopt openclaw naming here. |
 
 - **Shared files** that contain both upstream and AgentForge wiring (e.g. `server-methods.ts`, `command-registry.ts`): keep **our** methods/commands and take **upstream** changes for the rest.
 - **Naming:** Keep `moltbot` / `clawdbot` and `moltbot.mjs`; do not rename to `openclaw` unless you explicitly want to rebrand.
