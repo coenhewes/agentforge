@@ -2,8 +2,8 @@
 #
 # Board Meeting Trigger Script (two-way consensus)
 # 1. Run analyst only; get analyst report.
-# 2. Send analyst report to CFO, CTO, CMO, COO, risk, innovation so they react to the same evidence.
-# 3. Coordinator synthesizes from all 7.
+# 2. Send analyst report to CFO, CTO, CMO, COO, risk, innovation, pr so they react to the same evidence.
+# 3. Coordinator synthesizes from all 8.
 #
 
 set -euo pipefail
@@ -29,8 +29,8 @@ echo "[$(date)] Starting board meeting for ${DATE}..." >&2
 # Capture current venture state (LEDGER + optional CEO status) for analyst and coordinator
 CURRENT_STATE=$(node "$REPO_ROOT/scripts/board-get-current-state.mjs" 2>/dev/null || true)
 
-# Analyst runs first; other six see analyst's report (shared context)
-BOARD_MEMBERS_AFTER_ANALYST=("cfo" "cto" "cmo" "coo" "risk" "innovation")
+# Analyst runs first; other seven see analyst's report (shared context)
+BOARD_MEMBERS_AFTER_ANALYST=("cfo" "cto" "cmo" "coo" "risk" "innovation" "pr")
 
 # --- Phase 1: Run analyst only ---
 echo "[$(date)] Triggering analyst (Market Analyst researches opportunities)..." >&2
@@ -84,7 +84,7 @@ if [[ -z "${ANALYST_BRIEF:-}" ]]; then
   echo "[$(date)] WARNING: Could not read analyst report. Other members will run without shared context." >&2
 fi
 
-# --- Phase 2: Run the other six with shared analyst report ---
+# --- Phase 2: Run the other seven with shared analyst report ---
 # Use temp files to avoid escaping issues with analyst content
 TMP_ANALYST=$(mktemp)
 TMP_MSG=$(mktemp)
@@ -188,6 +188,8 @@ For your ideas, provide:
 
 Think 10x, not 2x. But ground ideas in reality. Present clearly."
 
+ROLE_INSTRUCTIONS[pr]="Your job: (1) Read all project docs available (workspace MEMORY, repo docs, and the venture/board context in this prompt) and use them when writing. (2) Use the default browser profile so the existing Moltbook connection is reused; do not log in again unless the site shows a login page. (3) Go to Moltbook and create content (blog post, update, or social post) summarizing today's board discussion and the opportunities from the analyst report above, informed by the docs. Post or save the content on Moltbook. In your response, state briefly what you published and where. You do not vote on ventures."
+
 # Display names for prompt header (e.g. cfo -> CFO, risk -> Risk Manager)
 declare -A ROLE_NAMES
 ROLE_NAMES[cfo]="CFO"
@@ -196,6 +198,7 @@ ROLE_NAMES[cmo]="CMO"
 ROLE_NAMES[coo]="COO"
 ROLE_NAMES[risk]="Risk Manager"
 ROLE_NAMES[innovation]="Innovation Lead"
+ROLE_NAMES[pr]="PR Lead"
 
 echo "[$(date)] Running board members (with shared analyst report)..." >&2
 for member in "${BOARD_MEMBERS_AFTER_ANALYST[@]}"; do
@@ -219,7 +222,7 @@ done
 echo "[$(date)] Giving agents a moment to finish writing..." >&2
 sleep 5
 
-# --- Phase 3: Coordinator synthesizes from all 7 ---
+# --- Phase 3: Coordinator synthesizes from all 8 ---
 echo "[$(date)] Triggering coordinator to synthesize decision..." >&2
 TMP_COORD=$(mktemp)
 trap 'rm -f "$TMP_PROMPT" "$TMP_ANALYST" "$TMP_MSG" "$TMP_COORD"' EXIT
@@ -236,7 +239,7 @@ trap 'rm -f "$TMP_PROMPT" "$TMP_ANALYST" "$TMP_MSG" "$TMP_COORD"' EXIT
     echo "Using the current state above and the board members' responses, synthesize a decision. You may recommend: continue/expand current venture(s), kill one and pivot, or add a new venture. Be explicit."
     echo ""
   fi
-  echo "Read the latest responses from all 7 board members:"
+  echo "Read the latest responses from all 8 board members:"
   echo "- agent:analyst:main (Market Analyst's opportunities)"
   echo "- agent:cfo:main (Financial analysis)"
   echo "- agent:cto:main (Technical feasibility)"
@@ -244,6 +247,7 @@ trap 'rm -f "$TMP_PROMPT" "$TMP_ANALYST" "$TMP_MSG" "$TMP_COORD"' EXIT
   echo "- agent:coo:main (Operations plan)"
   echo "- agent:risk:main (Risk assessment)"
   echo "- agent:innovation:main (Alternative ideas)"
+  echo "- agent:pr:main (PR Lead – Moltbook content)"
   echo ""
   echo "Board members have all seen the same analyst report and responded to it. Your task:"
   echo "1. Read each member's latest response using sessions_history"

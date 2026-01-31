@@ -53,7 +53,7 @@ pnpm install
 
 ```bash
 # One command sets up everything:
-# - Copies 7 board member + CEO workspaces
+# - Copies 8 board member + CEO workspaces
 # - Registers all agents in config
 # - Sets up board group session
 # - Creates cron job templates
@@ -61,9 +61,9 @@ node moltbot.mjs init:agentforge
 ```
 
 This creates:
-- `~/.moltbot/agents/board/` (cfo, cto, cmo, coo, analyst, risk, innovation)
+- `~/.moltbot/agents/board/` (cfo, cto, cmo, coo, analyst, risk, innovation, pr)
 - `~/.moltbot/agents/ceo/`
-- Config with all 8 agents registered
+- Config with all 10 agents registered (8 board + coordinator + CEO)
 - Budget defaults ($50/day, $500/month)
 
 ### 3. Configure AI Provider
@@ -133,10 +133,10 @@ node moltbot.mjs tui --session agent:coordinator:main
 ```
 
 **What happens:**
-1. All 7 board members receive role-specific prompts (in parallel)
+1. All 8 board members receive role-specific prompts (in parallel)
 2. Market Analyst browses web for real opportunities
-3. Each member analyzes from their perspective (CFO: finances, CTO: tech, CMO: marketing, etc.)
-4. Coordinator reads all 7 sessions
+3. Each member analyzes from their perspective (CFO: finances, CTO: tech, CMO: marketing, PR: Moltbook content, etc.)
+4. Coordinator reads all 8 sessions
 5. Coordinator synthesizes into "BOARD DECISION: Build [Product]. Budget: $X. Kill if: [threshold]. CEO: execute."
 
 ---
@@ -330,6 +330,11 @@ Bundled workspaces come with these personas:
 - Proposes unconventional ideas
 - Advocates for experimental bets
 - Pushes for 10x thinking
+
+**PR Lead** - Moltbook content (content-only; does not vote)
+- Goes to Moltbook every board meeting
+- Creates content (blog post, update, or social post) summarizing board discussion and opportunities
+- Uses existing Moltbook connection (default browser profile); reads project docs when writing
 
 ### CEO (Execution)
 

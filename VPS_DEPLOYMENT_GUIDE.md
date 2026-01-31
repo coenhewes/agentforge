@@ -184,7 +184,7 @@ cat ~/.moltbot/agentforge-cron.txt
 # Board 9am, CEO 10am, weekly reflection, monthly learning
 ```
 
-The seven board members (analyst, cfo, cmo, coo, cto, risk, innovation) live under `board/`; CEO and coordinator are top-level.
+The eight board members (analyst, cfo, cmo, coo, cto, risk, innovation, pr) live under `board/`; CEO and coordinator are top-level. PR (PR Lead) creates Moltbook content each board meeting; PR does not vote on ventures.
 
 ### 4c. Next steps (from init)
 

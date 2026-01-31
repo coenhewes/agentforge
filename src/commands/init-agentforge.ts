@@ -69,7 +69,7 @@ async function copyAgentWorkspaces(runtime: RuntimeEnv): Promise<void> {
   await fs.mkdir(AGENTS_DIR, { recursive: true });
 
   // Copy board members
-  const boardMembers = ["cfo", "cto", "cmo", "coo", "analyst", "risk", "innovation"];
+  const boardMembers = ["cfo", "cto", "cmo", "coo", "analyst", "risk", "innovation", "pr"];
 
   for (const member of boardMembers) {
     const sourcePath = path.join(sourceAgentsDir, "board", member);
@@ -208,6 +208,13 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
+        {
+          id: "pr",
+          workspace: path.join(AGENTS_DIR, "board", "pr"),
+          model: { primary: gemini3Pro, fallbacks: [] },
+          tools: agentforgeTools,
+          sandbox: agentforgeSandbox,
+        },
         // Coordinator (synthesizes board decisions; Gemini 3 Pro)
         {
           id: "coordinator",
@@ -253,11 +260,11 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
 
   await writeConfigFile(next);
   logConfigUpdated(runtime, {
-    suffix: "(registered 9 agents)",
+    suffix: "(registered 10 agents)",
   });
 
   runtime.log(`  ✓ Config: ${formatConfigPath()}`);
-  runtime.log(`  ✓ Registered: 7 board members + coordinator + CEO`);
+  runtime.log(`  ✓ Registered: 8 board members + coordinator + CEO`);
   runtime.log(`  ✓ Default model: ollama/qwen2.5:14b (fallback: openai/gpt-5-mini)`);
   runtime.log(`  ✓ Analyst: openai/gpt-5 | CTO + developer subagents: openai/gpt-4o`);
   runtime.log(`  ✓ Gateway mode: local`);
