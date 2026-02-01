@@ -198,9 +198,9 @@ class SkillBinsCache {
 
 function sanitizeEnv(
   overrides?: Record<string, string> | null,
-): Record<string, string> | undefined {
-  if (!overrides) return undefined;
+): Record<string, string> {
   const merged = { ...process.env } as Record<string, string>;
+  if (!overrides || Object.keys(overrides).length === 0) return merged;
   const basePath = process.env.PATH ?? DEFAULT_NODE_PATH;
   for (const [rawKey, value] of Object.entries(overrides)) {
     const key = rawKey.trim();

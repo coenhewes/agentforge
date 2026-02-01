@@ -549,13 +549,23 @@ sudo journalctl -u agentforge-gateway -f
 If you want agents to install packages and run system commands on the VPS (e.g. `sudo npm i -g moltbot`, `sudo systemctl restart agentforge-gateway`), do the following. **This gives the gateway full exec autonomy; only do it on a machine you trust.**
 
 1. **Sudo password in env**  
-   Add to `~/.agentforge-env` (same file loaded by systemd in 6b):
+   On the VPS, create or edit the env file that systemd loads. Use the **full path** (systemd does not expand `~`):
 
    ```bash
-   export SUDO_PASS='your-sudo-password'
+   # As agentforge user on the VPS
+   echo 'SUDO_PASS=your-sudo-password' >> /home/agentforge/.agentforge-env
+   chmod 600 /home/agentforge/.agentforge-env
    ```
 
-   The gateway inherits this env when systemd starts it. `SUDO_PASS` is not stripped by the exec sanitizer, so child shells can use it. Agents can run:
+   Or edit the file: `nano /home/agentforge/.agentforge-env` and add one line (no spaces around `=`):
+
+   ```
+   SUDO_PASS=your-sudo-password
+   ```
+
+   The systemd unit must load this file: `EnvironmentFile=-/home/agentforge/.agentforge-env` (see 6b). The gateway then has `SUDO_PASS` in its environment, and exec passes the gateway env to every shell—so the agent can use `echo "$SUDO_PASS" | sudo -S <command>`. Restart the gateway after changing the file: `sudo systemctl restart agentforge-gateway`.
+
+   **Verify:** After restart, from the VPS run a single exec that prints whether the var is set (do not print the value): e.g. ask the agent to run `[ -n \"$SUDO_PASS\" ] && echo SUDO_PASS_is_set || echo SUDO_PASS_not_set`. If it prints `SUDO_PASS_not_set`, fix the env file path or systemd `EnvironmentFile` and restart again.
 
    ```bash
    echo "$SUDO_PASS" | sudo -S npm i -g moltbot
