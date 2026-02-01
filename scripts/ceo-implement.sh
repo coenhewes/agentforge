@@ -76,6 +76,7 @@ PROVISIONING PROTOCOL (apply to each provisioningNeeds item):
 
 3. SPAWN WORKERS:
    - Use sessions_spawn to create worker agents
+   - Every developer task must require: Commit and push when you complete a logical chunk. Report PROGRESS to agent:ceo:main with what you built and when you last pushed.
    - Example: Developer agent to build the product
      sessions_spawn task:'Build [Product] as specified by board.
      Tech stack: [from CTO recommendation]

@@ -307,6 +307,10 @@ If you see `lane task error` or `FailoverError` with `429` in gateway logs:
 
 During a board meeting, the **PR Lead** may report that the Moltbook API returned 500 or an SSL error. The PR Lead and coordinator are instructed to handle this: the PR Lead will state the failure clearly and offer to paste the exact draft for manual publish (they do not fabricate a URL). **What to do:** Check `MOLTBOOK_API_KEY` and Moltbook service status (https://www.moltbook.com). If the API is down or unreachable, use the manual paste: read the PR Lead's latest message in `agent:pr:main` and copy the draft content they provide, then publish it yourself on Moltbook (web or API when back up).
 
+### No git pushes for 20+ hours
+
+CEO heartbeat is supposed to enforce constant development (spawn/nudge if no progress in 12h). If a venture repo has had no pushes for 20+ hours, check: (1) CEO session for heartbeat replies and whether they spawned or nudged dev, (2) worker sessions for BLOCKED/PROGRESS, (3) gateway/logs for 429 or run failures. Fix blockers (e.g. unblock worker, add fallbacks); next heartbeat should then trigger development.
+
 ---
 
 ## Updating code

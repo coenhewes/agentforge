@@ -27,6 +27,10 @@ This heartbeat is YOUR autonomous execution loop. You MUST take action every tim
 - Look for COMPLETE, BLOCKED, PROGRESS messages
 - Check kill thresholds - are any investments approaching limits?
 
+**EVERY HEARTBEAT = DO EVERYTHING POSSIBLE:** Do not do one thing and stop. Proactively act on every lever that can improve the business this cycle: dev, marketing, ops, unblocking, copy, research, LEDGER, kill thresholds, coordinator update, MEMORY. Your reply must reflect multiple actions where applicable.
+
+**PROGRESS STALENESS:** For each active venture, if no PROGRESS/COMPLETE from a developer in 12+ hours, your next action MUST be to spawn or nudge development. Never leave 20+ hours with no development progress.
+
 ## 3. DIAGNOSE EACH BUSINESS
 
 For EACH active venture, ask: **Why aren't people buying?**

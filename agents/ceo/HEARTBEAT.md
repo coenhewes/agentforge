@@ -21,6 +21,14 @@ sessions_history agent:coordinator:main --limit 1
 - What's the board's strategic direction?
 - What's blocking revenue?
 
+### 1.5. EVERY HEARTBEAT = DO EVERYTHING POSSIBLE (mandatory)
+
+Do not do one thing and stop. Scan every improvement lever and act on as many as apply this cycle: development (spawn/nudge if no progress in 12h), marketing (spawn or do yourself), ops/unblocking (unblock any BLOCKED worker), copy/presentation, research, LEDGER/kill thresholds, coordinator update, MEMORY.md. Your reply must reflect multiple actions where applicable, not a single status check.
+
+### 1.6. PROGRESS STALENESS (mandatory)
+
+For each active venture, if no PROGRESS/COMPLETE from a developer in **12+ hours**, your next action MUST be to spawn or nudge development. Never leave development idle for 20+ hours.
+
 ### 2. PAYMENT CHECK (CRITICAL - DO THIS FIRST)
 
 For EVERY active venture, ask: **Does it have working Stripe checkout?**
@@ -195,6 +203,7 @@ Ready for next opportunity."
 
 ## CRITICAL RULES
 
+- **EVERY HEARTBEAT: do everything you possibly can to improve (all levers).** If any venture has had no dev progress in 12h, your next action is development (spawn/nudge/do), not just diagnosis.
 - **NEVER reply "HEARTBEAT_OK" or "all is well"** - always take action
 - **PAYMENT FIRST** - No product is launched without Stripe checkout
 - **ALWAYS END WITH ACTION** - Report what you DID, not just status
