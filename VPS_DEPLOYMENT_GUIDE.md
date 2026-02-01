@@ -576,7 +576,23 @@ If you want agents to install packages and run system commands on the VPS (e.g. 
 
    If you omit `tools.exec.security`, it defaults to `allowlist` and commands must match the exec allowlist (usually empty), so exec will be denied. With `security: "full"` and `ask: "off"`, any command the agent runs (including sudo) is executed without allowlist or approval checks.
 
-3. **Restart gateway**  
+3. **Systemd unit: allow privilege escalation**  
+   The default unit (and `scripts/setup-systemd.sh`) sets `NoNewPrivileges=true`, which prevents child processes (including sudo) from gaining new privileges. For full autonomy, set `NoNewPrivileges=false` in the service file:
+
+   ```bash
+   sudo systemctl edit --full agentforge-gateway.service
+   ```
+
+   Change `NoNewPrivileges=true` to `NoNewPrivileges=false` (or remove the line), then:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart agentforge-gateway
+   ```
+
+   Do **not** add hardening that blocks writes or setuid (e.g. `ProtectSystem=strict`, `ProtectHome=true`, `ReadOnlyPaths=`, `SystemCallFilter=`) if you want agents to install packages and run sudo.
+
+4. **Restart gateway**  
    After editing env or config:
 
    ```bash
