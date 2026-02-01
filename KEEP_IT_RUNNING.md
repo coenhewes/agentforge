@@ -32,6 +32,20 @@ Run this once after deployment or after a VPS upgrade, before unattended operati
 
 ---
 
+## Financial infrastructure (plan)
+
+**This is the canonical financial stack.** It replaces any outdated infrastructure (e.g. manual card-only flows). Agents have full API access to both systems for the company’s full financial reality.
+
+| Layer | Role | Agent access |
+|-------|------|--------------|
+| **Stripe** | Collects payments (checkout, subscriptions, one-time). | **Full API access** for actuals: revenue, customers, payouts, balance. Use Stripe API/skill/CLI for the true picture of what’s been collected. |
+| **Withdrawals** | Stripe pays out into the Airwallex account. | **One-time setup:** Set Airwallex as the default payout destination in Stripe (Dashboard or API) using the Airwallex bank details. After that, agents can trigger a payout on demand via `stripe_create_payout` or rely on Stripe’s schedule. |
+| **Airwallex** | Holds the balance; issues cards; executes transfers and payments. | **Full API access** via tools: balances, FX quotes, transfers (create/get/list), beneficiaries (create/list/get), cards (create/list/get), plus `airwallex_create_card`. |
+
+**Result:** Stripe = revenue/actuals. Airwallex = bank balance, cards, transfers, pay. Agents use both for the full financial reality of the company.
+
+---
+
 ## What to check (and how often)
 
 ### 1. Gateway is up
@@ -112,6 +126,8 @@ Spawned workers share a **global concurrency limit**: `agents.defaults.subagents
 
 **When:** When you want to see what’s being built and spent.
 
+Capital and actuals live in: (1) **Stripe** — revenue, customers, payouts (full API access for actuals); (2) **Airwallex** — bank balance, cards, transfers (full API via tools); (3) **LEDGER.md** — venture bookkeeping synced with the above.
+
 ```bash
 cat ~/.moltbot/agents/ceo/LEDGER.md
 ```
@@ -138,11 +154,19 @@ Omit `ventures.maxActive` for no hard limit (CEO uses judgment). Budget is alway
 
 ### 9. Payment card (Investment Portal)
 
-**When:** You want the CEO to spend from a single virtual card (e.g. $20 prepaid) without giving raw card details in chat.
+**When:** You want the CEO to spend from a card without giving raw card details in chat. Cards can be **Airwallex-created** (via `airwallex_create_card`) or **manually added** in the portal.
 
-1. **Add a card in the portal:** Run `node dist/entry.js portal` (or your portal command). Go to **Settings** (tab 5), then press **c**. Fill in card number, CVV, expiry (MM/YY), cardholder name, and **Card Limit** (the amount on the card, e.g. 20). Submit with Enter; Esc cancels.
-2. **Encryption key:** Card data is encrypted with AES-256-GCM. The key comes from config `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` (base64) or env `AGENTFORGE_CARD_KEY`. If you add a card and the console prints "Generated new encryption key", **persist that key** (e.g. set `cardEncryptionKeyId` in config or `AGENTFORGE_CARD_KEY` in your env) so the same key is used after restart; otherwise decryption will fail.
-3. **Stripe:** The CEO uses the `capital_charge_active_card` tool to charge the stored card. Stripe must be configured (e.g. `STRIPE_SECRET_KEY` in config or env) and enabled. Each charge deducts from the card's balance; the tool returns the **new remaining balance** after each successful charge. The CEO should not charge more than the remaining balance.
+1. **Add a card in the portal:** Run `node dist/entry.js portal` (or your portal command). Go to **Settings** (tab 5), then press **c**. Fill in card number, CVV, expiry (MM/YY), cardholder name, and **Card Limit**. Submit with Enter; Esc cancels. (Alternatively, create a card via `airwallex_create_card` and add its details to the portal if your flow supports it.)
+2. **Encryption key:** Card data is encrypted with AES-256-GCM. The key comes from config `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` (base64) or env `AGENTFORGE_CARD_KEY`. If you add a card and the console prints "Generated new encryption key", **persist that key** so the same key is used after restart; otherwise decryption will fail.
+3. **Charging:** The CEO uses `capital_charge_active_card` to charge the **active** portal card. Stripe must be configured (e.g. `STRIPE_SECRET_KEY`) and enabled. Each charge deducts from the card’s balance; the tool returns the new remaining balance. For **full** financial reality (balance, new cards, transfers), agents use **Airwallex** tools and **Stripe** API/skill as in the plan above.
+
+### 10. Airwallex (bank account and full API)
+
+**When:** Airwallex is the venture bank account: Stripe withdraws into it; agents have **full API access** for balance, cards, transfers, and pay—everything the Airwallex API allows.
+
+1. **Credentials:** Set `AIRWALLEX_CLIENT_ID` and `AIRWALLEX_API_KEY` (from the Airwallex API menu). Optional: `AIRWALLEX_BASE_URL` — default production; set to `https://api-demo.airwallex.com` for demo.
+2. **Tools (full API access):** `airwallex_balances` (current balances per currency), `airwallex_get_quote` (FX quote), `airwallex_create_transfer` / `airwallex_get_transfer` (outbound transfers), `airwallex_create_card` (virtual cards). Agents can create cards, use cards, transfer, pay—anything the API allows. See the **airwallex** skill in `skills/airwallex/SKILL.md`.
+3. **Flow:** Stripe collects payments; configure Stripe to pay out into the Airwallex account. Balances appear in `airwallex_balances`. Cards created via `airwallex_create_card` can be used via Airwallex or, where supported, added to the Investment Portal for `capital_charge_active_card`.
 
 ---
 

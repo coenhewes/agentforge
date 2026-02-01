@@ -5,10 +5,12 @@ import { resolveSessionAgentId } from "./agent-scope.js";
 import { createAgentsListTool } from "./tools/agents-list-tool.js";
 import { createBrowserTool } from "./tools/browser-tool.js";
 import { createCanvasTool } from "./tools/canvas-tool.js";
+import { createAirwallexTools } from "./tools/airwallex-tool.js";
 import {
   createCapitalChargeTool,
   createVentureCapitalStatusTool,
 } from "./tools/capital-charge-tool.js";
+import { createStripeTools } from "./tools/stripe-tool.js";
 import type { AnyAgentTool } from "./tools/common.js";
 import { createCronTool } from "./tools/cron-tool.js";
 import { createGatewayTool } from "./tools/gateway-tool.js";
@@ -153,6 +155,8 @@ export function createOpenClawTools(options?: {
       config: options?.config,
       workspaceDir: options?.workspaceDir,
     }),
+    ...createAirwallexTools(),
+    ...createStripeTools(),
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),
     ...(imageTool ? [imageTool] : []),

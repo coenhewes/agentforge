@@ -8,6 +8,16 @@ metadata: {"moltbot":{"emoji":"💳","requires":{"bins":["stripe"]},"install":[{
 
 Reference for developers integrating Stripe payments. This is a guide, not a replacement for reading docs and writing code.
 
+## Agent tools (balance and payouts)
+
+Agents have dedicated tools for Stripe balance and payouts (no CLI required):
+
+- **`stripe_balance`** – Return Stripe account balance (available and pending) per currency. Call before planning payouts or to see how much can be withdrawn to Airwallex.
+- **`stripe_list_payouts`** – List Stripe payouts to the external bank (e.g. Airwallex). Optional limit and status filter. Use to see payout history and failure reasons.
+- **`stripe_create_payout`** – Create a payout to the default external bank account (e.g. Airwallex). Amount in cents, optional currency (default usd) and idempotency key. **One-time setup:** Set Airwallex as the default payout destination in Stripe Dashboard or API; then agents can trigger payouts on demand.
+
+Credentials: use existing Stripe config (`STRIPE_SECRET_KEY` or `humanInterface.agentforge.stripe`). No new env vars.
+
 ## Installation & Auth
 
 ```bash
