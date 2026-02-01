@@ -300,13 +300,13 @@ async function setupCronJobs(runtime: RuntimeEnv): Promise<void> {
 0 9 * * * cd ${repoRoot} && OPENCLAW_STATE_DIR=${MOLTBOT_DIR} ${repoRoot}/scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1
 
 # AgentForge - CEO Heartbeat (every 30 min) - continuous oversight, workers, venture tick, LEDGER sync
-*/30 * * * * cd ${repoRoot} && ${repoRoot}/scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
+*/30 * * * * cd ${repoRoot} && OPENCLAW_STATE_DIR=${MOLTBOT_DIR} ${repoRoot}/scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
 
 # AgentForge - Weekly Reflection (Sundays at 10pm)
-0 22 * * 0 cd ${repoRoot} && ${repoRoot}/scripts/weekly-reflection.sh >> /tmp/agentforge-reflection.log 2>&1
+0 22 * * 0 cd ${repoRoot} && OPENCLAW_STATE_DIR=${MOLTBOT_DIR} ${repoRoot}/scripts/weekly-reflection.sh >> /tmp/agentforge-reflection.log 2>&1
 
 # AgentForge - Monthly Meta-Learning (1st of month at 11pm)
-0 23 1 * * cd ${repoRoot} && ${repoRoot}/scripts/monthly-learning.sh >> /tmp/agentforge-learning.log 2>&1
+0 23 1 * * cd ${repoRoot} && OPENCLAW_STATE_DIR=${MOLTBOT_DIR} ${repoRoot}/scripts/monthly-learning.sh >> /tmp/agentforge-learning.log 2>&1
 `.trim();
 
   const cronFile = path.join(MOLTBOT_DIR, "agentforge-cron.txt");
