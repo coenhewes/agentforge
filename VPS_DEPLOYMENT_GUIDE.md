@@ -440,7 +440,7 @@ jq '.gateway.auth.mode, (.gateway.auth.token != null)' ~/.clawdbot/moltbot.json
 # Should show: "token" and true
 ```
 
-**Manual run:** To start the gateway by hand for testing, either `export CLAWDBOT_GATEWAY_TOKEN="$GATEWAY_TOKEN"` (or `source ~/.agentforge-env`) then `node dist/entry.js gateway run --port 18789`, or pass the token: `node dist/entry.js gateway run --port 18789 --token "$GATEWAY_TOKEN"`.
+**Manual run:** To start the gateway by hand for testing, run `node dist/entry.js gateway run --port 18789` (the CLI automatically loads `~/.agentforge-env` if present, or the file at `AGENTFORGE_ENV`). Or pass the token explicitly: `node dist/entry.js gateway run --port 18789 --token "$GATEWAY_TOKEN"`.
 
 ---
 
@@ -543,6 +543,47 @@ sudo systemctl status agentforge-gateway
 ss -ltnp | grep 18789
 sudo journalctl -u agentforge-gateway -f
 ```
+
+### 6e. Full autonomy (sudo)
+
+If you want agents to install packages and run system commands on the VPS (e.g. `sudo npm i -g moltbot`, `sudo systemctl restart agentforge-gateway`), do the following. **This gives the gateway full exec autonomy; only do it on a machine you trust.**
+
+1. **Sudo password in env**  
+   Add to `~/.agentforge-env` (same file loaded by systemd in 6b):
+
+   ```bash
+   export SUDO_PASS='your-sudo-password'
+   ```
+
+   The gateway inherits this env when systemd starts it. `SUDO_PASS` is not stripped by the exec sanitizer, so child shells can use it. Agents can run:
+
+   ```bash
+   echo "$SUDO_PASS" | sudo -S npm i -g moltbot
+   echo "$SUDO_PASS" | sudo -S systemctl restart agentforge-gateway
+   ```
+
+2. **Config: allow all exec (no allowlist, no approval)**  
+   In `~/.clawdbot/moltbot.json` (or `~/.openclaw/moltbot.json` if you use that state dir), set exec to full and ask off so the agent is not blocked by allowlist or approval prompts:
+
+   ```json
+   "tools": {
+     "exec": {
+       "security": "full",
+       "ask": "off"
+     }
+   }
+   ```
+
+   If you omit `tools.exec.security`, it defaults to `allowlist` and commands must match the exec allowlist (usually empty), so exec will be denied. With `security: "full"` and `ask: "off"`, any command the agent runs (including sudo) is executed without allowlist or approval checks.
+
+3. **Restart gateway**  
+   After editing env or config:
+
+   ```bash
+   sudo systemctl restart agentforge-gateway
+   ```
+
+   Verify: run a test from the CLI or trigger a run that uses exec; the agent should be able to run `echo "$SUDO_PASS" | sudo -S true` and similar.
 
 ---
 

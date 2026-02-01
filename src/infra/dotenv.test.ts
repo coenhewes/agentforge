@@ -73,4 +73,41 @@ describe("loadDotEnv", () => {
       else process.env[key] = value;
     }
   });
+
+  it("loads ~/.agentforge-env (or AGENTFORGE_ENV) without overriding existing vars", async () => {
+    const prevEnv = { ...process.env };
+    const prevCwd = process.cwd();
+    const prevAgentforgeEnv = process.env.AGENTFORGE_ENV;
+
+    const base = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-dotenv-test-"));
+    const homeDir = path.join(base, "home");
+    const agentforgeEnvFile = path.join(homeDir, ".agentforge-env");
+
+    process.env.HOME = homeDir;
+    process.env.OPENCLAW_STATE_DIR = path.join(base, "state");
+    await fs.mkdir(path.join(base, "state"), { recursive: true });
+    await writeEnvFile(agentforgeEnvFile, "GITHUB_TOKEN=from-agentforge-env\nBAZ=2\n");
+
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.BAZ;
+    process.env.BAZ = "from-shell";
+
+    loadDotEnv({ quiet: true });
+
+    expect(process.env.GITHUB_TOKEN).toBe("from-agentforge-env");
+    expect(process.env.BAZ).toBe("from-shell"); // already set, not overridden
+
+    process.env.HOME = prevEnv.HOME;
+    process.env.OPENCLAW_STATE_DIR = prevEnv.OPENCLAW_STATE_DIR;
+    if (prevAgentforgeEnv !== undefined) process.env.AGENTFORGE_ENV = prevAgentforgeEnv;
+    else delete process.env.AGENTFORGE_ENV;
+    for (const key of Object.keys(process.env)) {
+      if (!(key in prevEnv)) delete process.env[key];
+    }
+    for (const [key, value] of Object.entries(prevEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    process.chdir(prevCwd);
+  });
 });

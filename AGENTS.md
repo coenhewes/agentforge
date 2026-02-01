@@ -99,7 +99,7 @@
 ## Security & Configuration Tips
 - Web provider stores creds at `~/.clawdbot/credentials/`; rerun `moltbot login` if logged out.
 - Pi sessions live under `~/.clawdbot/sessions/` by default; the base directory is not configurable.
-- Environment variables: see `~/.profile`.
+- Environment variables: see `~/.profile`. The CLI loads env from (in order, later does not override): CWD `.env`, `~/.openclaw/.env` (or `OPENCLAW_STATE_DIR/.env`), then `AGENTFORGE_ENV` if set or `$HOME/.agentforge-env`. Manual runs therefore see vars from `~/.agentforge-env` without sourcing it.
 - Never commit or publish real phone numbers, videos, or live configuration values. Use obviously fake placeholders in docs, tests, and examples.
  - Release flow: always read `docs/reference/RELEASING.md` and `docs/platforms/mac/release.md` before any release work; do not ask routine questions once those docs answer them.
 
