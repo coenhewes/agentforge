@@ -55,11 +55,6 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "image",
     "capital_charge_active_card",
     "venture_capital_status",
-    "airwallex_balances",
-    "airwallex_get_quote",
-    "airwallex_create_transfer",
-    "airwallex_get_transfer",
-    "airwallex_create_card",
   ],
 };
 
