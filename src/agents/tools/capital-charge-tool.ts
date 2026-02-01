@@ -264,3 +264,37 @@ export function createCapitalChargeTool(opts?: {
     },
   };
 }
+
+/**
+ * Tool that returns current venture capital status (ledger + card remaining = total spendable).
+ * CEO can call this before planning spend to know how much is available.
+ */
+export function createVentureCapitalStatusTool(opts?: {
+  config?: OpenClawConfig;
+  workspaceDir?: string;
+}): AnyAgentTool {
+  return {
+    label: "Venture capital status",
+    name: "venture_capital_status",
+    description:
+      "Return current spendable capital: ledger Available plus active card remaining. Call this before planning or approving spend to know total available.",
+    parameters: Type.Object({}),
+    execute: async () => {
+      const workspaceDir = opts?.workspaceDir?.trim() || resolveWorkspaceDir(opts?.config);
+      const dbPath = resolveVentureDbPath({ workspaceDir });
+      const store = openVentureStateStore({ dbPath });
+      const ledgerAvailable = store.getCapital("available");
+      const cards = store.listPaymentCards();
+      const cardRemaining = cards.reduce(
+        (sum, c) => sum + (c.cardLimitUsd - (c.cardSpentUsd ?? 0)),
+        0,
+      );
+      const totalSpendable = ledgerAvailable + cardRemaining;
+      return jsonResult({
+        ledgerAvailable,
+        cardRemaining,
+        totalSpendable,
+      });
+    },
+  };
+}

@@ -215,6 +215,19 @@ class OverviewContainer extends Container {
     lines.push(
       `    Net Position:      ${net >= 0 ? chalk.green("$" + net) : chalk.red("$" + net)}`,
     );
+    const ledgerAvailable = this.store.getCapital("available");
+    const cards = this.store.listPaymentCards();
+    const cardRemaining = cards.reduce(
+      (sum, c) => sum + (c.cardLimitUsd - (c.cardSpentUsd ?? 0)),
+      0,
+    );
+    const totalSpendable = ledgerAvailable + cardRemaining;
+    if (cards.length > 0) {
+      lines.push("");
+      lines.push(
+        `    Total spendable:   ${chalk.cyan("$" + totalSpendable)} ${chalk.gray(`(ledger $${ledgerAvailable} + card $${cardRemaining})`)}`,
+      );
+    }
 
     lines.push("");
     lines.push(theme.bold("  📊 Investment Summary"));
@@ -237,7 +250,6 @@ class OverviewContainer extends Container {
     lines.push("");
     lines.push(theme.bold("  💳 Payment Cards"));
     lines.push("");
-    const cards = this.store.listPaymentCards();
     if (cards.length === 0) {
       lines.push(chalk.gray("    No payment cards configured"));
       lines.push(chalk.gray("    Press 5 for Settings, then 'c' to add a card"));

@@ -54,6 +54,7 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "web_fetch",
     "image",
     "capital_charge_active_card",
+    "venture_capital_status",
   ],
 };
 
