@@ -2,19 +2,23 @@
 
 **YOUR ONE GOAL: MAKE MONEY.** This heartbeat runs every 30 minutes. You MUST take action every time - never just monitor.
 
+**This run must include at least one of:** sessions_spawn, sessions_send, sessions_history, or a browser/tool call. Otherwise you are only monitoring.
+
 ---
 
 ## Every Heartbeat: Autonomous Execution
 
 ### 1. Assess Board Vision & Current State
 
-```bash
-# Check what ventures the board has approved
-cat ~/.moltbot/agents/ceo/LEDGER.md | grep -A 30 "Active Investments"
+**Prefer venture tools over reading LEDGER.md.** Venture state lives in the venture store (SQLite); LEDGER.md is generated from it.
 
-# Check latest board direction if needed
-sessions_history agent:coordinator:main --limit 1
-```
+- Use **ventures_list** (optionally with status: active) to list current ventures.
+- Use **venture_capital_status** to see capital available and card remaining.
+- Use **venture_get** to get one venture by ID.
+- To update ventures (spend, revenue, status, kill): use **venture_update**, **venture_mark_killed**, or **venture_create** for new ventures; LEDGER.md is regenerated automatically.
+- Check latest board direction: **sessions_history** agent:coordinator:main --limit 1.
+
+Fallback: you can still read LEDGER.md (e.g. cat ~/.moltbot/agents/ceo/LEDGER.md) for a human-readable view, but the store is the source of truth.
 
 **Questions to answer:**
 - What ventures are active?
@@ -70,13 +74,7 @@ sessions_spawn --agent mkt-[product] --task "Launch [product]:
 
 ### 4. Initialize Investment Tracking
 
-Update `LEDGER.md` with new investment:
-
-```markdown
-| 001 | [Product] | $[budget] | $0 | $0 | N/A | [kill threshold] | [days] | Building |
-```
-
-Update `MEMORY.md` with execution plan.
+Create new ventures in the venture store with **venture_create** (ventureId, ventureName, category, budgetUsd, killThreshold, daysRemaining). LEDGER.md is regenerated from the store. Update `MEMORY.md` with execution plan.
 
 ### 5. Poll Workers & Unblock Immediately
 
@@ -100,12 +98,7 @@ sessions_history agent:mkt-[product]:main --limit 5
 
 ### 6. Update Ledger & Check Kill Thresholds
 
-```bash
-# Update LEDGER.md with current state
-# - Actual spend
-# - Revenue (if any)
-# - Days remaining on kill thresholds
-```
+Use **venture_update** to set spentUsd, revenueUsd, daysRemaining, status. Use **venture_mark_killed** when kill threshold is met. LEDGER.md is regenerated from the store.
 
 If approaching kill threshold with no revenue:
 - Decide NOW: iterate harder or kill
@@ -177,7 +170,7 @@ sessions_send agent:dev-[product]:main "STOP. Investment killed per threshold. P
 sessions_send agent:mkt-[product]:main "STOP. Investment killed per threshold."
 ```
 
-2. Document in `LEDGER.md`
+2. Update venture store (venture_update) so LEDGER.md reflects current state
 ```markdown
 ## Killed Investments
 | [ID] | [Product] | $[budget] | $[spent] | $[revenue] | [ROI] | [Reason] | [Days] | [Lessons] |
@@ -210,4 +203,4 @@ Ready for next opportunity."
 - **BOARD GIVES DIRECTION, YOU DRIVE EXECUTION** - Don't wait for detailed instructions
 - **FIRST REVENUE IS THE MILESTONE** - "Deployed" without payment = still building
 - This heartbeat runs every 30 minutes - you are in continuous execution mode
-- Always update LEDGER.md and post updates to coordinator session
+- Always update venture store (venture_update / venture_mark_killed) and post updates to coordinator session; LEDGER.md is regenerated from the store

@@ -457,6 +457,16 @@ export async function runHeartbeatOnce(opts: {
 
   const queueSize = (opts.deps?.getQueueSize ?? getQueueSize)(CommandLane.Main);
   if (queueSize > 0) {
+    log.info("heartbeat: skipped (requests-in-flight)", {
+      reason: "requests-in-flight",
+      queueSize,
+      agentId,
+    });
+    emitHeartbeatEvent({
+      status: "skipped",
+      reason: "requests-in-flight",
+      durationMs: Date.now() - startedAt,
+    });
     return { status: "skipped", reason: "requests-in-flight" };
   }
 
@@ -502,7 +512,11 @@ export async function runHeartbeatOnce(opts: {
   const pendingEvents = isExecEvent ? peekSystemEvents(sessionKey) : [];
   const hasExecCompletion = pendingEvents.some((evt) => evt.includes("Exec finished"));
 
-  const prompt = hasExecCompletion ? EXEC_EVENT_PROMPT : resolveHeartbeatPrompt(cfg, heartbeat);
+  let prompt = hasExecCompletion ? EXEC_EVENT_PROMPT : resolveHeartbeatPrompt(cfg, heartbeat);
+  if (!hasExecCompletion) {
+    const nowIso = new Date().toISOString();
+    prompt = `${prompt}\n\nCurrent time: ${nowIso}. Treat this as a new cycle; do not repeat prior summaries.`;
+  }
   const ctx = {
     Body: prompt,
     From: sender,

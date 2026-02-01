@@ -65,21 +65,36 @@ trap 'rm -f "$TMP_PROMPT"' EXIT
 node "$CLI" agent --agent analyst --message "$(cat "$TMP_PROMPT")" > /dev/null 2>&1 \
   || echo "  Warning: analyst failed" >&2
 
-# Wait for analyst to finish writing; then get last message (with retries)
-echo "[$(date)] Giving analyst time to finish writing..." >&2
-sleep 5
+# Poll analyst until substantive reply (non-empty, contains "Opportunity" or long enough) or max wait
+echo "[$(date)] Polling for analyst response (max 2.5 min)..." >&2
 ANALYST_BRIEF=""
-for _ in 1 2 3 4 5; do
-  ANALYST_BRIEF=$(node "$REPO_ROOT/scripts/board-get-session-message.mjs" --agent analyst 2>/dev/null || true)
+MAX_WAIT_SEC=150
+POLL_INTERVAL_SEC=10
+ELAPSED=0
+while [[ $ELAPSED -lt $MAX_WAIT_SEC ]]; do
+  ANALYST_BRIEF=$(node "$REPO_ROOT/scripts/board-get-session-message.mjs" --agent analyst --must-contain "Opportunity" 2>/dev/null || true)
   if [[ -n "${ANALYST_BRIEF:-}" ]]; then
     break
   fi
-  echo "[$(date)] Waiting for analyst response (retry)..." >&2
-  sleep 10
+  # Fallback: any non-empty reply of reasonable length
+  ANALYST_BRIEF=$(node "$REPO_ROOT/scripts/board-get-session-message.mjs" --agent analyst 2>/dev/null || true)
+  if [[ -n "${ANALYST_BRIEF:-}" && ${#ANALYST_BRIEF} -gt 200 ]]; then
+    break
+  fi
+  ANALYST_BRIEF=""
+  echo "[$(date)] Waiting for analyst response (${ELAPSED}s)..." >&2
+  sleep "$POLL_INTERVAL_SEC"
+  ELAPSED=$((ELAPSED + POLL_INTERVAL_SEC))
 done
 
+# Sanity check before Phase 2
 if [[ -z "${ANALYST_BRIEF:-}" ]]; then
-  echo "[$(date)] WARNING: Could not read analyst report. Other members will run without shared context." >&2
+  echo "[$(date)] WARNING: No substantive analyst report after ${MAX_WAIT_SEC}s. Aborting board meeting; other members need analyst context." >&2
+  echo "[$(date)] Re-run board meeting after analyst has completed, or run analyst manually and retry." >&2
+  exit 1
+fi
+if [[ ${#ANALYST_BRIEF} -lt 100 ]]; then
+  echo "[$(date)] WARNING: Analyst report very short (${#ANALYST_BRIEF} chars). Proceeding; coordinator may have weak context." >&2
 fi
 
 # --- Phase 2: Run the other seven with shared analyst report ---

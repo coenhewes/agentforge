@@ -1,11 +1,16 @@
 import os from "node:os";
 import path from "node:path";
 
+import { loadConfig } from "../config/config.js";
+import { resolveUserPath } from "../utils.js";
 import { callGateway } from "../gateway/call.js";
 import { INTERNAL_MESSAGE_CHANNEL } from "../utils/message-channel.js";
 import { AGENT_LANE_NESTED } from "../agents/lanes.js";
+import { resolveAgentWorkspaceDir, resolveDefaultAgentId } from "../agents/agent-scope.js";
+import { syncStateToLedger } from "../agentforge/ledger-sync.js";
 import { openVentureStateStore, resolveVentureDbPath } from "../agentforge/venture-state.js";
 import { loadSubagentRegistryFromDisk } from "../agents/subagent-registry.store.js";
+import { resolveStateDir } from "../config/paths.js";
 
 function resolveVentureWorkspaceDir(ventureId: string): string {
   return path.join(os.homedir(), ".moltbot", "ventures", ventureId);
@@ -120,10 +125,34 @@ export async function ventureTickCommand(params: {
       timestamp: Date.now(),
     });
 
+    // Sync global investment store so venture list and LEDGER reflect killed status
+    try {
+      const cfg = loadConfig();
+      const defaultAgentId = resolveDefaultAgentId(cfg);
+      const workspaceDir =
+        resolveAgentWorkspaceDir(cfg, defaultAgentId) ??
+        path.join(os.homedir(), ".openclaw", "workspace");
+      const globalDbPath = resolveVentureDbPath({
+        workspaceDir: resolveUserPath(workspaceDir),
+      });
+      const globalStore = openVentureStateStore({ dbPath: globalDbPath });
+      const inv = globalStore.getInvestment(ventureId);
+      if (inv) {
+        globalStore.updateInvestment(ventureId, {
+          status: "killed",
+          completedAt: Date.now(),
+        });
+        const ledgerPath = path.join(resolveStateDir(), "agents", "ceo", "LEDGER.md");
+        await syncStateToLedger(ledgerPath, workspaceDir).catch(() => {});
+      }
+    } catch {
+      // Best-effort; per-venture kill state is already set
+    }
+
     // Notify CEO
     await sendInternalMessage({
       sessionKey: "agent:ceo:main",
-      message: `KILL SWITCH TRIGGERED: Venture ${ventureId}\nReasons:\n${killReasons.map((r) => `- ${r}`).join("\n")}\n\nUpdate LEDGER.md to move this investment to "Killed Investments" section.`,
+      message: `KILL SWITCH TRIGGERED: Venture ${ventureId}\nReasons:\n${killReasons.map((r) => `- ${r}`).join("\n")}\n\nVenture marked killed in store; LEDGER regenerated.`,
     });
 
     // Terminate venture session

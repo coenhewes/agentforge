@@ -22,25 +22,61 @@ fi
 CLI="${REPO_ROOT}/dist/entry.js"
 [[ -f "$CLI" ]] || CLI="${REPO_ROOT}/moltbot.mjs"
 
-# Validate the latest coordinator decision before triggering the CEO.
-# This fails fast when the coordinator output is missing/invalid.
+# Resolve decision: try store first, then coordinator transcript, then last-good store, then best-effort (no exit 1).
+STORE_DIR="${OPENCLAW_STATE_DIR:-${CLAWDBOT_STATE_DIR:-$HOME/.moltbot}}"
+DECISION_JSON=""
 PARSER_STDERR=""
-DECISION_JSON="$(node "$REPO_ROOT/scripts/parse-coordinator-decision.mjs" --agent coordinator 2> /tmp/ceo-parse-coordinator.stderr.$$ || true)"
-if [[ -n "$(cat /tmp/ceo-parse-coordinator.stderr.$$ 2>/dev/null)" ]]; then
-  PARSER_STDERR="$(cat /tmp/ceo-parse-coordinator.stderr.$$)"
-fi
 rm -f /tmp/ceo-parse-coordinator.stderr.$$
+
+# 1. Try decision store (coordinator writes via submit_board_decision tool)
+DECISION_JSON="$(node "$REPO_ROOT/scripts/parse-coordinator-decision.mjs" --from-store 2> /tmp/ceo-parse-coordinator.stderr.$$ || true)"
+if [[ -n "${DECISION_JSON:-}" ]]; then
+  echo "[$(date)] Using decision from store." >&2
+fi
+
+# 2. Try coordinator transcript
 if [[ -z "${DECISION_JSON:-}" ]]; then
-  echo "[$(date)] ERROR: Coordinator decision missing/invalid. Re-run board meeting or open agent:coordinator:main and ensure it includes DECISION_JSON5." >&2
+  PARSER_STDERR="$(cat /tmp/ceo-parse-coordinator.stderr.$$ 2>/dev/null)"
+  DECISION_JSON="$(node "$REPO_ROOT/scripts/parse-coordinator-decision.mjs" --agent coordinator 2> /tmp/ceo-parse-coordinator.stderr.$$ || true)"
+  if [[ -n "${DECISION_JSON:-}" ]]; then
+    echo "[$(date)] Using decision from coordinator transcript." >&2
+  fi
+fi
+
+# 3. Try last-good decision store
+if [[ -z "${DECISION_JSON:-}" ]]; then
+  LAST_GOOD="$STORE_DIR/board-decision-last-good.json"
+  if [[ -f "$LAST_GOOD" ]]; then
+    DECISION_JSON="$(node "$REPO_ROOT/scripts/parse-coordinator-decision.mjs" --from-store --store-file "$LAST_GOOD" 2> /tmp/ceo-parse-coordinator.stderr.$$ || true)"
+    if [[ -n "${DECISION_JSON:-}" ]]; then
+      echo "[$(date)] Using last good decision from store." >&2
+    fi
+  fi
+fi
+
+# 4. Best-effort: no structured decision; CEO will read coordinator session
+if [[ -z "${DECISION_JSON:-}" ]]; then
+  PARSER_STDERR="$(cat /tmp/ceo-parse-coordinator.stderr.$$ 2>/dev/null)"
+  echo "[$(date)] No valid decision in store or coordinator transcript. Running CEO in best-effort mode (read coordinator session and proceed)." >&2
   if [[ -n "${PARSER_STDERR:-}" ]]; then
     echo "[$(date)] Parser said: $PARSER_STDERR" >&2
   fi
-  exit 1
+  BEST_EFFORT=1
 fi
+rm -f /tmp/ceo-parse-coordinator.stderr.$$
 
 # CEO implementation prompt: write to temp file so DECISION_JSON (JSON with quotes) is safe
 CEOPROMPT_FILE="${TMPDIR:-/tmp}/ceo-implement-prompt-$$.txt"
 trap 'rm -f "$CEOPROMPT_FILE"' EXIT
+
+if [[ -n "${BEST_EFFORT:-}" ]]; then
+  DECISION_BLOCK="No structured decision in store. Use sessions_history to read agent:coordinator:main (latest response), extract the board's direction, and proceed with best effort. If coordinator said NO CONSENSUS, synthesize from board members or spawn proxies to fill gaps."
+else
+  DECISION_BLOCK="A machine-readable decision payload is provided below. Treat it as authoritative when present:
+
+DECISION_JSON:
+${DECISION_JSON}"
+fi
 
 cat > "$CEOPROMPT_FILE" << CEOPROMPT_END
 CEO Daily Execution - $(date +%Y-%m-%d)
@@ -53,10 +89,7 @@ Your tasks today:
    - Extract: product name, budget, timeline, build plan, marketing plan, kill thresholds
    - If coordinator says 'NO CONSENSUS', proceed with best-effort synthesis or spawn proxies to fill gaps
 
-   Additionally, a machine-readable decision payload is provided below. Treat it as authoritative when present:
-
-DECISION_JSON:
-${DECISION_JSON}
+   ${DECISION_BLOCK}
 
 PROVISIONING PROTOCOL (apply to each provisioningNeeds item):
 - Attempt autonomously first:

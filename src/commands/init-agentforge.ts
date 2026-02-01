@@ -246,6 +246,8 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
           subagents: { allowAgents: ["*"] },
+          default: true,
+          heartbeat: { every: "30m" },
         },
       ],
       defaults: {
@@ -294,11 +296,8 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
 async function setupCronJobs(runtime: RuntimeEnv): Promise<void> {
   const repoRoot = process.cwd();
   const cronScript = `
-# AgentForge - Daily Board Meeting (9am)
-0 9 * * * cd ${repoRoot} && ${repoRoot}/scripts/board-meeting.sh >> /tmp/agentforge-board.log 2>&1
-
-# AgentForge - CEO Implementation (10am, after board meeting)
-0 10 * * * cd ${repoRoot} && ${repoRoot}/scripts/ceo-implement.sh >> /tmp/agentforge-ceo.log 2>&1
+# AgentForge - Daily pipeline (9am): board meeting → coordinator (store decision) → CEO implement
+0 9 * * * cd ${repoRoot} && OPENCLAW_STATE_DIR=${MOLTBOT_DIR} ${repoRoot}/scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1
 
 # AgentForge - CEO Heartbeat (every 30 min) - continuous oversight, workers, venture tick, LEDGER sync
 */30 * * * * cd ${repoRoot} && ${repoRoot}/scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1

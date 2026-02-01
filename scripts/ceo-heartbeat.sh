@@ -11,10 +11,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # CEO heartbeat prompt - AUTONOMOUS EXECUTION LOOP
 PROMPT="CEO Heartbeat - $(date +"%Y-%m-%d %H:%M")
+Current time: $(date -Iseconds 2>/dev/null || date +"%Y-%m-%dT%H:%M:%S%z"). Treat this as a new cycle; do not repeat prior summaries.
 
 YOUR ONE GOAL: MAKE MONEY. Every action must move toward revenue.
 
 This heartbeat is YOUR autonomous execution loop. You MUST take action every time - never reply that all is well.
+
+This run must include at least one of: sessions_spawn, sessions_send, sessions_history, or a browser/tool call. Otherwise you are only monitoring.
 
 ## 1. ASSESS BOARD VISION
 - Read LEDGER.md for current ventures and board direction
@@ -122,26 +125,29 @@ BEGIN AUTONOMOUS EXECUTION."
 cd "$REPO_ROOT"
 CLI="${REPO_ROOT}/dist/entry.js"
 [ -f "$CLI" ] || CLI="${REPO_ROOT}/moltbot.mjs"
-node "$CLI" agent --agent ceo --message "$PROMPT" > /dev/null 2>&1
+AGENT_EXIT=0
+node "$CLI" agent --agent ceo --message "$PROMPT" > /dev/null 2>&1 || AGENT_EXIT=$?
+if [ "$AGENT_EXIT" -ne 0 ]; then
+  echo "[$(date)] CEO heartbeat agent run failed (exit code $AGENT_EXIT)" >&2
+fi
 
 # After CEO heartbeat, run venture runloop for active investments
-# Extract active investment IDs from LEDGER.md and run venture:tick for each
-if [ -f ~/.moltbot/agents/ceo/LEDGER.md ]; then
-  # Parse active investments from LEDGER.md
-  # Look for lines like: | INV-001 | ProductName | ...
-  ACTIVE_IDS=$(grep -A 50 "## Active Investments" ~/.moltbot/agents/ceo/LEDGER.md | grep "^| INV-" | cut -d'|' -f2 | tr -d ' ' || true)
-  
-  for venture_id in $ACTIVE_IDS; do
-    if [ ! -z "$venture_id" ] && [ "$venture_id" != "-" ]; then
-      echo "[$(date)] Running venture tick for $venture_id" >&2
-      node "$CLI" venture:tick --venture "$venture_id" > /dev/null 2>&1 || true
-    fi
-  done
-fi
+# Get active venture IDs from the venture store (source of truth), then run venture:tick for each
+ACTIVE_IDS=$(node "$CLI" venture list --status active --ids-only 2>/dev/null || true)
+for venture_id in $ACTIVE_IDS; do
+  if [ -n "$venture_id" ] && [ "$venture_id" != "-" ]; then
+    echo "[$(date)] Running venture tick for $venture_id" >&2
+    node "$CLI" venture:tick --venture "$venture_id" > /dev/null 2>&1 || true
+  fi
+done
 
-# Push LEDGER.md → SQLite so the portal shows current capital (CEO writes to LEDGER; portal reads from DB)
+# Regenerate LEDGER.md from venture store (store is source of truth; CEO uses venture tools)
 if [ -f "$REPO_ROOT/scripts/sync-ledger.mjs" ]; then
-  node "$REPO_ROOT/scripts/sync-ledger.mjs" --to-sqlite > /dev/null 2>&1 || true
+  node "$REPO_ROOT/scripts/sync-ledger.mjs" --to-markdown > /dev/null 2>&1 || true
 fi
 
-echo "[$(date)] CEO heartbeat completed" >&2
+if [ "$AGENT_EXIT" -eq 0 ]; then
+  echo "[$(date)] CEO heartbeat completed" >&2
+else
+  echo "[$(date)] CEO heartbeat finished (agent had exit code $AGENT_EXIT)" >&2
+fi

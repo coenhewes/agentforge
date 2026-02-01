@@ -228,6 +228,15 @@ export function buildAgentSystemPrompt(params: {
     session_status:
       "Show a /status-equivalent status card (usage + time + Reasoning/Verbose/Elevated); use for model-use questions (📊 session_status); optional per-session model override",
     image: "Analyze an image with the configured image model",
+    venture_capital_status:
+      "Return current capital (ledger available, card remaining); call before planning spend",
+    ventures_list:
+      "List ventures (investments) from the venture store; optional status filter (active, completed, killed)",
+    venture_get: "Get one venture (investment) by ID from the venture store",
+    venture_update:
+      "Update a venture in the venture store (spend, revenue, status, etc.); LEDGER.md regenerated",
+    venture_create: "Create a new venture in the venture store; LEDGER.md regenerated",
+    venture_mark_killed: "Mark a venture as killed in the venture store; LEDGER.md regenerated",
   };
 
   const toolOrder = [
@@ -254,6 +263,12 @@ export function buildAgentSystemPrompt(params: {
     "sessions_send",
     "session_status",
     "image",
+    "venture_capital_status",
+    "ventures_list",
+    "venture_get",
+    "venture_update",
+    "venture_create",
+    "venture_mark_killed",
   ];
 
   const rawToolNames = (params.toolNames ?? []).map((tool) => tool.trim());

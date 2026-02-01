@@ -10,12 +10,13 @@ Short guide for what to do **after** deployment so the system keeps running. For
 
 | When | What |
 |------|------|
-| **Daily 9am** | Board meeting → coordinator decision |
-| **Daily 10am** | CEO implementation (read decision, spawn workers, update LEDGER) |
+| **Daily (e.g. 9am)** | **Single daily pipeline:** `scripts/daily-board-ceo.sh` runs board meeting → coordinator (writes decision to store) → CEO implement in one process. Alternatively: separate **9am** board meeting and **10am** CEO implement cron entries. |
 | **Every 30 min** | CEO heartbeat (oversight, workers, venture tick, LEDGER sync) |
 | **Weekly / monthly** | Reflection and meta-learning (if you added those cron entries) |
 
 Cron must be running and the gateway must be up. One gateway restart or one missed cron run is usually fine; the next run catches up.
+
+**Autonomous loop (CEO heartbeat):** After `init:agentforge`, the CEO is the default agent with `heartbeat: { every: "30m" }`. The **gateway** runs the CEO every 30 minutes using the prompt from config (which instructs the model to read HEARTBEAT.md and follow it). So the autonomous loop is the **gateway heartbeat for the CEO**. The cron entry that runs `ceo-heartbeat.sh` every 30 min is optional: you can keep it as a backup (it sends a long prompt via CLI) or remove it if you rely only on the gateway heartbeat. If you remove it, ensure the gateway runs 24/7 (e.g. systemd) and that cron env (see 2b) is only needed for board meeting and CEO implement.
 
 ---
 
@@ -24,11 +25,14 @@ Cron must be running and the gateway must be up. One gateway restart or one miss
 Run this once after deployment or after a VPS upgrade, before unattended operation:
 
 - [ ] **Gateway running and healthy** — `sudo systemctl status agentforge-gateway`, `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/` (expect `200` or `302`).
-- [ ] **Cron installed** — Board 9am, CEO 10am, **CEO heartbeat every 30 min**, weekly/monthly if desired. `crontab -l` should show all lines (template in `~/.moltbot/agentforge-cron.txt` includes them after `init:agentforge`).
+- [ ] **Cron installed** — **Daily pipeline** once (e.g. 9am): `./scripts/daily-board-ceo.sh`; **CEO heartbeat every 30 min**; weekly/monthly if desired. Or use separate 9am board and 10am CEO implement entries. Template: `~/.moltbot/agentforge-cron.txt` (after `init:agentforge`). `crontab -l` should show your entries.
 - [ ] **State dir for board meeting** — Board meeting script finds LEDGER at `~/.moltbot/agents/ceo/LEDGER.md` by default when that path exists; otherwise set `MOLTBOT_STATE_DIR` (or `CLAWDBOT_STATE_DIR`) where cron runs the board meeting. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Step 10.
 - [ ] **Model fallbacks** — CEO (and board if desired) have `agents.defaults.model.fallbacks` (or per-agent fallbacks) set so 429/rate limits don’t stall the loop. Verify with `jq '.agents.defaults.model' ~/.clawdbot/moltbot.json` (or your config path).
-- [ ] **LEDGER and venture IDs** — `~/.moltbot/agents/ceo/LEDGER.md` exists; active investments use **INV-xxx** in the first column so `ceo-heartbeat.sh` can run `venture:tick` for each.
-- [ ] **Dry run** — Run `./scripts/board-meeting.sh`, then `./scripts/ceo-implement.sh`, then `./scripts/ceo-heartbeat.sh`. Confirm coordinator decision is valid (DECISION_JSON5), CEO runs and updates LEDGER, and venture tick runs for any INV-xxx in Active Investments.
+- [ ] **Venture store** — Venture state lives in SQLite (default agent workspace `ops/venture.sqlite`); **LEDGER.md** is generated from the store. The CEO should use venture tools (`ventures_list`, `venture_update`, `venture_create`, `venture_mark_killed`, `venture_capital_status`) to read/write state; `ceo-heartbeat.sh` gets active venture IDs from the store via `venture list --status active --ids-only` and runs `venture:tick` for each.
+- [ ] **Dry run** — Run `./scripts/board-meeting.sh`, then `./scripts/ceo-implement.sh`, then `./scripts/ceo-heartbeat.sh`. Confirm coordinator decision is valid (DECISION_JSON5), CEO runs and updates venture store (or LEDGER), and venture tick runs for each active venture from the store.
+- [ ] **AgentForge dry-run** — Run `./scripts/agentforge-dry-run.sh` to verify crontab contains CEO heartbeat, config path exists, and gateway is reachable. Optionally run `./scripts/agentforge-dry-run.sh --probe` to also test one short CEO run (can be slow).
+
+**Resilience – 429 and model fallbacks:** Ensure `agents.defaults.model.fallbacks` (or per-agent fallbacks) is set so one provider (e.g. 429 rate limit) does not permanently stall the loop. 429 and transient errors should trigger retry or fallback; the CEO and board should not stall indefinitely on a single provider. See [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai) and [Gemini daily quota exceeded (graceful fallback)](#gemini-daily-quota-exceeded-graceful-fallback) below.
 
 ---
 
@@ -54,7 +58,24 @@ sudo systemctl status cron
 crontab -l
 ```
 
-You should see entries for board meeting, CEO run, and CEO heartbeat. If cron is off: `sudo systemctl start cron`.
+You should see an entry for the daily pipeline (e.g. `daily-board-ceo.sh` at 9am) and CEO heartbeat every 30 min; or separate board 9am and CEO implement 10am. If cron is off: `sudo systemctl start cron`.
+
+### 2b. Cron environment (state dir and config path)
+
+**When:** After deployment or if cron runs but the CEO heartbeat log shows "agent run failed (exit code N)" and manual `node dist/entry.js agent --agent ceo --message "Test"` works when you run it in a shell.
+
+Cron runs with a minimal environment. The CLI loads config from `OPENCLAW_STATE_DIR` or `CLAWDBOT_STATE_DIR` (or falls back to `~/.openclaw` / `~/.clawdbot`). If your config and agents live under `~/.moltbot`, set the state dir so cron uses the same config as when you run manually.
+
+**Option 1 – set in crontab:** Prefix each cron line with env vars, e.g.:
+
+```bash
+OPENCLAW_STATE_DIR=$HOME/.moltbot CLAWDBOT_STATE_DIR=$HOME/.moltbot
+*/30 * * * * cd /home/agentforge/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
+```
+
+**Option 2 – source env in the script:** Create `~/.moltbot/agentforge-env` (or similar) with `export OPENCLAW_STATE_DIR=$HOME/.moltbot` and at the top of `ceo-heartbeat.sh` add `[ -f ~/.moltbot/agentforge-env ] && . ~/.moltbot/agentforge-env` (only if you adopt this convention).
+
+**Verify:** Run the heartbeat script once from a clean env that mimics cron: `env -i HOME=$HOME OPENCLAW_STATE_DIR=$HOME/.moltbot bash -c 'cd /path/to/agentforge && ./scripts/ceo-heartbeat.sh'` and confirm it completes without "agent run failed".
 
 ### 3. CEO heartbeat ran (and where to see the report)
 
@@ -64,7 +85,7 @@ You should see entries for board meeting, CEO run, and CEO heartbeat. If cron is
 tail -n 30 /tmp/agentforge-heartbeat.log
 ```
 
-The log only shows **completion lines** (e.g. `[Fri Jan 30 14:30:36 UTC 2026] CEO heartbeat completed`) and optionally "Running venture tick for INV-XXX". It does **not** contain the CEO's written report.
+The log shows **completion or failure lines** (e.g. `[Fri Jan 30 14:30:36 UTC 2026] CEO heartbeat completed` or `CEO heartbeat agent run failed (exit code N)` / `CEO heartbeat finished (agent had exit code N)`). It may also show "Running venture tick for INV-XXX". It does **not** contain the CEO's full written report.
 
 To see the **actual CEO status report** (RED/GREEN, ventures, workers, next steps), open the CEO session and read the latest message:
 
@@ -77,6 +98,8 @@ Scroll to the most recent CEO reply to the heartbeat prompt; that's where the st
 ### 4. Human requests (only when they exist)
 
 **When:** When the heartbeat says “waiting for Human response” or you see a REQ-XXX.
+
+If the CEO reports waiting for human or the loop seems stuck, check pending requests and approve or respond so the loop can proceed.
 
 **Read / list requests:**
 
@@ -265,6 +288,8 @@ node dist/entry.js browser --browser-profile clawd snapshot
 - **"Chrome extension relay is running, but no tab is connected"**: Use `defaultProfile: "clawd"` (managed browser, no extension needed on VPS)
 - **Check gateway logs**: `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -i browser`
 
+**Browser vs request_human:** Use the **browser** for research and simple actions (e.g. reading a page, clicking a known button). Treat sign-up flows that require CAPTCHA, 2FA push, or KYC as **request_human**; the CEO (or provisioning flow) should not get stuck retrying automation that cannot succeed. Use request_human when the flow requires human-only steps so the CEO does not stall on automation failures.
+
 ### 429 RESOURCE_EXHAUSTED but fallback not trying OpenAI
 
 If you still see only Gemini in the footer and 429 errors after setting `agents.defaults.model.fallbacks` and deploying the fallback fix:
@@ -395,6 +420,36 @@ tar -czf agentforge-backup-$(date +%Y%m%d).tar.gz \
 ```
 
 Store the tarball somewhere safe (not only on the same VPS).
+
+---
+
+## Venture store (source of truth)
+
+Venture state lives in SQLite (default agent workspace `ops/venture.sqlite`). **LEDGER.md** is generated from the store (e.g. by `scripts/sync-ledger.mjs --to-markdown` or when the CEO uses venture tools). The CEO should use **ventures_list**, **venture_get**, **venture_update**, **venture_create**, **venture_mark_killed**, and **venture_capital_status** to read/write state; the heartbeat script gets active venture IDs from the store via `venture list --status active --ids-only` and runs `venture:tick` for each.
+
+## Single daily pipeline
+
+**Script:** `scripts/daily-board-ceo.sh` runs board meeting → coordinator (writes decision to store) → CEO implement in one process. Use one cron entry (e.g. 9am) instead of separate 9am and 10am entries. Ensures coordinator output is in the decision store before CEO implement runs. Optional: pass `--tui` for live view.
+
+**Cron example:** `0 9 * * * cd /path/to/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1`
+
+## Why we build on OpenClaw
+
+AgentForge is built on **OpenClaw** (messaging gateway + Pi-style agent runtime). We keep this base because:
+
+- **Runtime:** Session store, tool execution (exec, browser, sandbox), model fallback, compaction — core to every CEO/board/worker run.
+- **Multi-agent:** `sessions_spawn`, `sessions_send`, `sessions_history`, agent-scoped sessions and lanes — essential for CEO → workers and board → coordinator.
+- **Channels:** Telegram, WhatsApp, Discord, etc. — optional for fully autonomous runs but useful for alerts and human-in-the-loop.
+- **Rich tools:** exec, browser, web_search, message, gateway, venture tools, capital_charge, board_decision, human_request — the framework is OpenClaw; AgentForge adds the business layer.
+
+Past failures to run autonomously were **orchestration and data flow** (wrong agent on heartbeat, cron env, coordinator handoff, LEDGER vs store), not the core runtime. We improve on this base (venture store as source of truth, single daily pipeline, CEO tools) rather than rewriting.
+
+## Kill-threshold and revenue-loop
+
+- **Kill-threshold:** `venture:tick` evaluates kill switches in the per-venture store (e.g. "no revenue by day 30"). When a threshold is met, the venture is marked killed in the **per-venture** store and in the **global** investment store; LEDGER is regenerated; the CEO is notified.
+- **Revenue-loop alert:** If a venture has Stripe configured but zero revenue after N days (e.g. 30), consider killing or iterating. Check ventures via `ventures_list` or LEDGER; use `venture_mark_killed` or spawn development/marketing as needed. Optionally add a cron job or heartbeat step that sends a message to the CEO session when revenue is 0 and `created_at` is older than N days.
+
+## Next steps (later phase)
 
 ---
 

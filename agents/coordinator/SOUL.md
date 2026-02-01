@@ -200,6 +200,7 @@ Rules:
 - Use **only** the fields above (you may add extra keys only under `notes`).
 - `requiredSystems` should include only what is truly needed for this venture.
 - For each provisioning item: set `humanOnly=true` only when it truly requires KYC/ID/phone/SMS ownership or a human can solve a CAPTCHA faster.
+- **After writing the DECISION_JSON5 block in your reply,** call **submit_board_decision** with the same decision object so the decision store is updated. ceo-implement reads from the store first; if you submit via the tool, the CEO run will not depend on parsing your transcript.
 
 ### 5. Handle Disagreement
 

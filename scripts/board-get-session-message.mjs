@@ -90,14 +90,22 @@ function getLastAssistantMessage(transcriptPath, mustContain = null) {
   return lastText;
 }
 
-function main() {
+function parseArgs(argv) {
   let agentId = "";
-  for (let i = 0; i < process.argv.length; i++) {
-    if (process.argv[i] === "--agent" && process.argv[i + 1]) {
-      agentId = process.argv[i + 1];
-      break;
+  let mustContain = null;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--agent" && argv[i + 1]) {
+      agentId = argv[i + 1];
+    }
+    if (argv[i] === "--must-contain" && argv[i + 1]) {
+      mustContain = argv[i + 1];
     }
   }
+  return { agentId, mustContain };
+}
+
+function main() {
+  const { agentId, mustContain } = parseArgs(process.argv);
   if (!agentId) {
     process.stderr.write("board-get-session-message.mjs: --agent <id> required\n");
     process.exit(1);
@@ -131,8 +139,9 @@ function main() {
     : path.join(sessionsDir, `${entry.sessionId}.jsonl`);
 
   // For coordinator, use the last assistant message that contains DECISION_JSON5 (so we get the full synthesis even if the coordinator sent a follow-up after)
-  const mustContain = normalizedAgent === "coordinator" ? "DECISION_JSON5:" : null;
-  const text = getLastAssistantMessage(transcriptPath, mustContain);
+  const contentFilter =
+    mustContain !== null ? mustContain : normalizedAgent === "coordinator" ? "DECISION_JSON5:" : null;
+  const text = getLastAssistantMessage(transcriptPath, contentFilter);
   if (text) process.stdout.write(text);
 }
 

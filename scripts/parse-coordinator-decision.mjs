@@ -5,13 +5,19 @@
  * Usage:
  *  node scripts/parse-coordinator-decision.mjs --agent coordinator
  *  node scripts/parse-coordinator-decision.mjs --agent coordinator --out /tmp/decision.json
+ *  node scripts/parse-coordinator-decision.mjs --from-store
+ *  node scripts/parse-coordinator-decision.mjs --from-store --store-file /path/to/board-decision.json
  *
  * Output:
  *  - Writes the validated decision as JSON to stdout (or to --out).
  *  - Exits non-zero with a helpful error message if missing/invalid.
+ *
+ * --from-store: Read from the decision store (coordinator writes via submit_board_decision tool).
+ * --store-file: Path to store file (default: $OPENCLAW_STATE_DIR or $CLAWDBOT_STATE_DIR or ~/.moltbot, then /board-decision.json).
  */
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,12 +26,21 @@ import JSON5 from "json5";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function defaultStoreDir() {
+  const override =
+    process.env.OPENCLAW_STATE_DIR?.trim() || process.env.CLAWDBOT_STATE_DIR?.trim();
+  if (override) return path.resolve(override);
+  return path.join(os.homedir(), ".moltbot");
+}
+
 function parseArgs(argv) {
-  const out = { agent: "coordinator", outPath: null };
+  const out = { agent: "coordinator", outPath: null, fromStore: false, storeFile: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--agent" && argv[i + 1]) out.agent = argv[i + 1];
     if (a === "--out" && argv[i + 1]) out.outPath = argv[i + 1];
+    if (a === "--from-store") out.fromStore = true;
+    if (a === "--store-file" && argv[i + 1]) out.storeFile = argv[i + 1];
   }
   return out;
 }
@@ -81,51 +96,80 @@ function validateDecision(obj) {
 }
 
 async function main() {
-  const { agent, outPath } = parseArgs(process.argv.slice(2));
-  const getter = path.join(__dirname, "board-get-session-message.mjs");
-  const { spawnSync } = await import("node:child_process");
-
-  const res = spawnSync(process.execPath, [getter, "--agent", agent], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (res.status !== 0) {
-    process.stderr.write(res.stderr || `Failed to read agent transcript for ${agent}\n`);
-    process.exit(1);
-  }
-
-  const raw = String(res.stdout || "");
-  if (!raw.trim()) {
-    process.stderr.write(`No assistant message found for agent ${agent}\n`);
-    process.exit(1);
-  }
-
-  const block = extractDecisionJson5Block(raw);
-  if (!block) {
-    process.stderr.write(
-      'Missing DECISION_JSON5 block. Coordinator output must include a \"DECISION_JSON5:\" section with a ```json5 fenced block.\n',
-    );
-    process.exit(1);
-  }
-
-  let parsed;
-  try {
-    parsed = JSON5.parse(block);
-  } catch (err) {
-    process.stderr.write(
-      `Failed to parse DECISION_JSON5 as JSON5: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
-    process.exit(1);
-  }
+  const { agent, outPath, fromStore, storeFile } = parseArgs(process.argv.slice(2));
 
   let validated;
-  try {
-    validated = validateDecision(parsed);
-  } catch (err) {
-    process.stderr.write(
-      `DECISION_JSON5 validation failed: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
-    process.exit(1);
+
+  if (fromStore) {
+    const storePath =
+      storeFile ?? path.join(defaultStoreDir(), "board-decision.json");
+    if (!fs.existsSync(storePath)) {
+      process.stderr.write(`Decision store not found: ${storePath}\n`);
+      process.exit(1);
+    }
+    const raw = fs.readFileSync(storePath, "utf8");
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      process.stderr.write(
+        `Failed to parse store as JSON: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+      process.exit(1);
+    }
+    try {
+      validated = validateDecision(parsed);
+    } catch (err) {
+      process.stderr.write(
+        `Store decision validation failed: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+      process.exit(1);
+    }
+  } else {
+    const getter = path.join(__dirname, "board-get-session-message.mjs");
+    const { spawnSync } = await import("node:child_process");
+
+    const res = spawnSync(process.execPath, [getter, "--agent", agent], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (res.status !== 0) {
+      process.stderr.write(res.stderr || `Failed to read agent transcript for ${agent}\n`);
+      process.exit(1);
+    }
+
+    const raw = String(res.stdout || "");
+    if (!raw.trim()) {
+      process.stderr.write(`No assistant message found for agent ${agent}\n`);
+      process.exit(1);
+    }
+
+    const block = extractDecisionJson5Block(raw);
+    if (!block) {
+      process.stderr.write(
+        'Missing DECISION_JSON5 block. Coordinator output must include a "DECISION_JSON5:" section with a ```json5 fenced block.\n',
+      );
+      process.exit(1);
+    }
+
+    let parsed;
+    try {
+      parsed = JSON5.parse(block);
+    } catch (err) {
+      process.stderr.write(
+        `Failed to parse DECISION_JSON5 as JSON5: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+      process.exit(1);
+    }
+
+    try {
+      validated = validateDecision(parsed);
+    } catch (err) {
+      process.stderr.write(
+        `DECISION_JSON5 validation failed: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+      process.exit(1);
+    }
   }
 
   const output = `${JSON.stringify(validated, null, 2)}\n`;

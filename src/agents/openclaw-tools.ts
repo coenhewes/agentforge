@@ -3,6 +3,7 @@ import { resolvePluginTools } from "../plugins/tools.js";
 import type { GatewayMessageChannel } from "../utils/message-channel.js";
 import { resolveSessionAgentId } from "./agent-scope.js";
 import { createAgentsListTool } from "./tools/agents-list-tool.js";
+import { createBoardDecisionTool } from "./tools/board-decision-tool.js";
 import { createBrowserTool } from "./tools/browser-tool.js";
 import { createCanvasTool } from "./tools/canvas-tool.js";
 import {
@@ -22,6 +23,13 @@ import { createSessionsListTool } from "./tools/sessions-list-tool.js";
 import { createSessionsSendTool } from "./tools/sessions-send-tool.js";
 import { createSessionsSpawnTool } from "./tools/sessions-spawn-tool.js";
 import { createWebFetchTool, createWebSearchTool } from "./tools/web-tools.js";
+import {
+  createVentureCreateTool,
+  createVentureGetTool,
+  createVentureMarkKilledTool,
+  createVenturesListTool,
+  createVentureUpdateTool,
+} from "./tools/venture-tools.js";
 import { createTtsTool } from "./tools/tts-tool.js";
 
 export function createOpenClawTools(options?: {
@@ -78,6 +86,7 @@ export function createOpenClawTools(options?: {
     sandboxed: options?.sandboxed,
   });
   const tools: AnyAgentTool[] = [
+    createBoardDecisionTool(),
     createBrowserTool({
       sandboxBridgeUrl: options?.sandboxBrowserBridgeUrl,
       allowHostControl: options?.allowHostBrowserControl,
@@ -153,6 +162,11 @@ export function createOpenClawTools(options?: {
       config: options?.config,
       workspaceDir: options?.workspaceDir,
     }),
+    createVenturesListTool({ config: options?.config }),
+    createVentureGetTool({ config: options?.config }),
+    createVentureUpdateTool({ config: options?.config }),
+    createVentureCreateTool({ config: options?.config }),
+    createVentureMarkKilledTool({ config: options?.config }),
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),
     ...(imageTool ? [imageTool] : []),

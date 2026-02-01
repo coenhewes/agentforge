@@ -638,6 +638,24 @@ chmod +x scripts/*.sh
 
 **Recommended crontab** (includes CEO heartbeat every 30 minutes; the template in `~/.moltbot/agentforge-cron.txt` written by `init:agentforge` includes all lines below). Format: `minute hour day-of-month month day-of-week command` (e.g. `0 9 * * *` = 9am daily). Use one line per job; no line breaks inside a line.
 
+**Option A – Single daily pipeline (recommended):** One 9am entry runs board → coordinator → CEO implement in one process.
+
+```cron
+# AgentForge - Daily pipeline (9am): board meeting → coordinator (store decision) → CEO implement
+0 9 * * * cd /home/agentforge/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1
+
+# AgentForge - CEO Heartbeat (every 30 min) – continuous oversight, workers, venture runloop, LEDGER sync
+*/30 * * * * cd /home/agentforge/agentforge && ./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
+
+# AgentForge - Weekly Reflection (Sun 10pm)
+0 22 * * 0 cd /home/agentforge/agentforge && ./scripts/weekly-reflection.sh >> /tmp/agentforge-reflection.log 2>&1
+
+# AgentForge - Monthly Meta-Learning (1st 11pm)
+0 23 1 * * cd /home/agentforge/agentforge && ./scripts/monthly-learning.sh >> /tmp/agentforge-learning.log 2>&1
+```
+
+**Option B – Separate 9am and 10am entries:**
+
 ```cron
 # AgentForge - Daily Board Meeting (9am)
 0 9 * * * cd /home/agentforge/agentforge && ./scripts/board-meeting.sh >> /tmp/agentforge-board.log 2>&1
@@ -668,7 +686,7 @@ Or append to existing crontab:
 (crontab -l 2>/dev/null; cat ~/.moltbot/agentforge-cron.txt) | crontab -
 ```
 
-**What the CEO heartbeat does:** Sends a heartbeat prompt to the CEO, then for each active investment in LEDGER runs `node dist/entry.js venture:tick --venture <id>`, then runs `scripts/sync-ledger.mjs`.
+**What the CEO heartbeat does:** Sends a heartbeat prompt to the CEO, then for each active venture from the venture store runs `node dist/entry.js venture:tick --venture <id>` (IDs from `venture list --status active --ids-only`), then runs `scripts/sync-ledger.mjs --to-markdown` to regenerate LEDGER.md from the store.
 
 Verify:
 
