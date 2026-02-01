@@ -122,7 +122,10 @@ async function copyDirectory(
       const shouldPreserve =
         preserveIfExists.length > 0 &&
         preserveIfExists.includes(entry.name) &&
-        (await fs.access(destPath).then(() => true).catch(() => false));
+        (await fs
+          .access(destPath)
+          .then(() => true)
+          .catch(() => false));
       if (!shouldPreserve) {
         await fs.copyFile(srcPath, destPath);
       }
@@ -146,8 +149,8 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
   };
   const agentforgeSandbox = { mode: "off" as const };
 
-  // AgentForge model plan: board + CEO = Gemini 3 Pro; image = Nano Banana Pro; default subagents = Gemini 3 Pro; developer (coding) subagents = GPT-5.1 Codex via model override when spawning.
-  const gemini3Pro = "google/gemini-3-pro-preview";
+  // All agents and subagents use gpt-5-mini.
+  const gpt5Mini = "openai/gpt-5-mini";
   const nanoBananaPro = "google/gemini-3-pro-image-preview";
 
   const next: MoltbotConfig = {
@@ -172,76 +175,74 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
     agents: {
       ...cfg.agents,
       list: [
-        // Board members (all Gemini 3 Pro per https://ai.google.dev/gemini-api/docs/gemini-3)
+        // Board members (all gpt-5-mini)
         {
           id: "cfo",
           workspace: path.join(AGENTS_DIR, "board", "cfo"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
         {
           id: "cto",
           workspace: path.join(AGENTS_DIR, "board", "cto"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
         {
           id: "cmo",
           workspace: path.join(AGENTS_DIR, "board", "cmo"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
         {
           id: "coo",
           workspace: path.join(AGENTS_DIR, "board", "coo"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
         {
           id: "analyst",
           workspace: path.join(AGENTS_DIR, "board", "analyst"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
         {
           id: "risk",
           workspace: path.join(AGENTS_DIR, "board", "risk"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
         {
           id: "innovation",
           workspace: path.join(AGENTS_DIR, "board", "innovation"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
         {
           id: "pr",
           workspace: path.join(AGENTS_DIR, "board", "pr"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
-        // Coordinator (synthesizes board decisions; Gemini 3 Pro)
         {
           id: "coordinator",
           workspace: path.join(AGENTS_DIR, "coordinator"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
         },
-        // CEO (Gemini 3 Pro; standard subagents use Gemini 3 Pro; for coding tasks pass model override openai-codex/gpt-5.1-codex when spawning)
         {
           id: "ceo",
           workspace: path.join(AGENTS_DIR, "ceo"),
-          model: { primary: gemini3Pro, fallbacks: [] },
+          model: { primary: gpt5Mini, fallbacks: [] },
           tools: agentforgeTools,
           sandbox: agentforgeSandbox,
           subagents: { allowAgents: ["*"] },
@@ -250,8 +251,8 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
       defaults: {
         ...cfg.agents?.defaults,
         model: {
-          primary: gemini3Pro,
-          fallbacks: ["openai/gpt-5-mini"],
+          primary: gpt5Mini,
+          fallbacks: [],
         },
         imageModel: {
           primary: nanoBananaPro,
@@ -259,7 +260,7 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
         },
         subagents: {
           ...cfg.agents?.defaults?.subagents,
-          model: gemini3Pro,
+          model: gpt5Mini,
         },
         budget: {
           daily: 50,
@@ -279,8 +280,9 @@ async function updateConfig(runtime: RuntimeEnv): Promise<void> {
 
   runtime.log(`  ✓ Config: ${formatConfigPath()}`);
   runtime.log(`  ✓ Registered: 8 board members + coordinator + CEO`);
-  runtime.log(`  ✓ Default model: ollama/qwen2.5:14b (fallback: openai/gpt-5-mini)`);
-  runtime.log(`  ✓ Analyst: openai/gpt-5 | CTO + developer subagents: openai/gpt-4o`);
+  runtime.log(
+    `  ✓ All agents: openai/gpt-5-mini (default + board + coordinator + CEO + subagents)`,
+  );
   runtime.log(`  ✓ Gateway mode: local`);
   runtime.log(`  ✓ Agent-to-agent messaging: enabled`);
   runtime.log(`  ✓ Budget: $50/day, $500/month`);

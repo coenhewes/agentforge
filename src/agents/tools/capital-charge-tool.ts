@@ -157,8 +157,15 @@ export function createCapitalChargeTool(opts?: {
     parameters: CapitalChargeToolSchema,
     execute: async (_toolCallId, args) => {
       const params = args as Record<string, unknown>;
-      const amountUsd = readNumberParam(params, "amountUsd", { required: true });
+      const amountUsdRaw = readNumberParam(params, "amountUsd", { required: true });
       const description = readStringParam(params, "description", { required: true });
+      if (typeof amountUsdRaw !== "number" || !Number.isFinite(amountUsdRaw) || amountUsdRaw <= 0) {
+        return jsonResult({
+          status: "error",
+          error: "amountUsd must be a positive number",
+        });
+      }
+      const amountUsd: number = amountUsdRaw;
 
       const workspaceDir = opts?.workspaceDir?.trim() || resolveWorkspaceDir(opts?.config);
       const dbPath = resolveVentureDbPath({ workspaceDir });
@@ -174,13 +181,6 @@ export function createCapitalChargeTool(opts?: {
       }
 
       const remainingUsd = getCardRemainingUsd(card);
-      if (amountUsd <= 0 || !Number.isFinite(amountUsd)) {
-        return jsonResult({
-          status: "error",
-          error: "amountUsd must be a positive number",
-          remainingUsd,
-        });
-      }
       if (amountUsd > remainingUsd) {
         return jsonResult({
           status: "error",
