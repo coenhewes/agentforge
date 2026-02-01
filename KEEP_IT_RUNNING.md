@@ -2,7 +2,29 @@
 
 Short guide for what to do **after** deployment so the system keeps running. For initial setup see [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md).
 
-**Run from repo root:** All `node dist/entry.js` and `node scripts/...` commands below assume you are in the agentforge repo directory. If you're in `~`, run `cd ~/agentforge` first (or use `node ~/agentforge/dist/entry.js ...`).
+**Run from repo root:** All `node dist/entry.js` and `./scripts/...` commands assume you are in the agentforge repo directory (e.g. `cd ~/agentforge` first).
+
+---
+
+## Quick start (TL;DR)
+
+1. **Gateway + cron** — Gateway runs 24/7; cron runs the daily pipeline (9am) and CEO heartbeat (every 30 min).
+2. **Check every few days** — `tail -n 30 /tmp/agentforge-heartbeat.log` and, if needed, open the CEO session for the full status report.
+3. **Act when needed** — Restart gateway, approve human requests (REQ-XXX), fix missing tools (e.g. `gh`).
+4. **After pulling code** — `pnpm install && pnpm build && pnpm ui:build` then `sudo systemctl restart agentforge-gateway`.
+
+---
+
+## Contents
+
+- [What runs by itself](#what-runs-by-itself)
+- [Pre-production checklist](#pre-production-checklist-before-leaving-it-for-a-week)
+- [What to check (and how often)](#what-to-check-and-how-often)
+- [When to intervene](#when-to-intervene)
+- [Updating code](#updating-code)
+- [Quick command reference](#quick-command-reference)
+- [System overview](#system-overview)
+- [Summary](#summary)
 
 ---
 
@@ -10,29 +32,29 @@ Short guide for what to do **after** deployment so the system keeps running. For
 
 | When | What |
 |------|------|
-| **Daily (e.g. 9am)** | **Single daily pipeline:** `scripts/daily-board-ceo.sh` runs board meeting → coordinator (writes decision to store) → CEO implement in one process. Alternatively: separate **9am** board meeting and **10am** CEO implement cron entries. |
-| **Every 30 min** | CEO heartbeat (oversight, workers, venture tick, LEDGER sync) |
-| **Weekly / monthly** | Reflection and meta-learning (if you added those cron entries) |
+| **Daily (e.g. 9am)** | **Single daily pipeline:** `scripts/daily-board-ceo.sh` runs board meeting → coordinator (writes decision to store) → CEO implement in one process. |
+| **Every 30 min** | CEO heartbeat (oversight, workers, venture tick, LEDGER sync). Driven by **gateway** (default after `init:agentforge`) or by cron as backup. |
+| **Weekly / monthly** | Reflection and meta-learning (if you added those cron entries). |
 
-Cron must be running and the gateway must be up. One gateway restart or one missed cron run is usually fine; the next run catches up.
+**Requirements:** Cron must be running and the gateway must be up. One gateway restart or one missed cron run is usually fine; the next run catches up.
 
-**Autonomous loop (CEO heartbeat):** After `init:agentforge`, the CEO is the default agent with `heartbeat: { every: "30m" }`. The **gateway** runs the CEO every 30 minutes using the prompt from config (which instructs the model to read HEARTBEAT.md and follow it). So the autonomous loop is the **gateway heartbeat for the CEO**. The cron entry that runs `ceo-heartbeat.sh` every 30 min is optional: you can keep it as a backup (it sends a long prompt via CLI) or remove it if you rely only on the gateway heartbeat. If you remove it, ensure the gateway runs 24/7 (e.g. systemd) and that cron env (see 2b) is only needed for board meeting and CEO implement.
+**Autonomous loop (CEO heartbeat):** After `init:agentforge`, the CEO is the default agent with `heartbeat: { every: "30m" }`. The **gateway** runs the CEO every 30 minutes. The cron entry that runs `ceo-heartbeat.sh` every 30 min is **optional** (backup). If you rely only on the gateway heartbeat, ensure the gateway runs 24/7 (e.g. systemd) and that cron env (see [Cron environment](#21-cron-environment-state-dir-and-config-path)) is only needed for the daily pipeline.
 
 ---
 
-## Pre-production test checklist (before leaving it for a week)
+## Pre-production checklist (before leaving it for a week)
 
-Run this once after deployment or after a VPS upgrade, before unattended operation:
+Run once after deployment or after a VPS upgrade:
 
 - [ ] **Gateway running and healthy** — `sudo systemctl status agentforge-gateway`, `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/` (expect `200` or `302`).
-- [ ] **Cron installed** — **Daily pipeline** once (e.g. 9am): `./scripts/daily-board-ceo.sh`; **CEO heartbeat every 30 min**; weekly/monthly if desired. Or use separate 9am board and 10am CEO implement entries. Template: `~/.moltbot/agentforge-cron.txt` (after `init:agentforge`). `crontab -l` should show your entries.
-- [ ] **State dir for board meeting** — Board meeting script finds LEDGER at `~/.moltbot/agents/ceo/LEDGER.md` by default when that path exists; otherwise set `MOLTBOT_STATE_DIR` (or `CLAWDBOT_STATE_DIR`) where cron runs the board meeting. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Step 10.
-- [ ] **Model fallbacks** — CEO (and board if desired) have `agents.defaults.model.fallbacks` (or per-agent fallbacks) set so 429/rate limits don’t stall the loop. Verify with `jq '.agents.defaults.model' ~/.clawdbot/moltbot.json` (or your config path).
-- [ ] **Venture store** — Venture state lives in SQLite (default agent workspace `ops/venture.sqlite`); **LEDGER.md** is generated from the store. The CEO should use venture tools (`ventures_list`, `venture_update`, `venture_create`, `venture_mark_killed`, `venture_capital_status`) to read/write state; `ceo-heartbeat.sh` gets active venture IDs from the store via `venture list --status active --ids-only` and runs `venture:tick` for each.
-- [ ] **Dry run** — Run `./scripts/board-meeting.sh`, then `./scripts/ceo-implement.sh`, then `./scripts/ceo-heartbeat.sh`. Confirm coordinator decision is valid (DECISION_JSON5), CEO runs and updates venture store (or LEDGER), and venture tick runs for each active venture from the store.
-- [ ] **AgentForge dry-run** — Run `./scripts/agentforge-dry-run.sh` to verify crontab contains CEO heartbeat, config path exists, and gateway is reachable. Optionally run `./scripts/agentforge-dry-run.sh --probe` to also test one short CEO run (can be slow).
+- [ ] **Cron installed** — Daily pipeline once (e.g. 9am): `./scripts/daily-board-ceo.sh`; CEO heartbeat every 30 min; weekly/monthly if desired. Template: `~/.moltbot/agentforge-cron.txt` (after `init:agentforge`). Set `OPENCLAW_STATE_DIR=$HOME/.moltbot` (or your state dir) in crontab so cron uses the same config. `crontab -l` should show your entries.
+- [ ] **State dir for board meeting** — Board meeting finds LEDGER at `~/.moltbot/agents/ceo/LEDGER.md` by default when that path exists; otherwise set `MOLTBOT_STATE_DIR` (or `CLAWDBOT_STATE_DIR`) where cron runs. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Step 10.
+- [ ] **Model fallbacks** — CEO (and board if desired) have `agents.defaults.model.fallbacks` set so 429/rate limits don’t stall the loop. Verify: `jq '.agents.defaults.model' ~/.clawdbot/moltbot.json` (or your config path).
+- [ ] **Venture store** — Venture state is in SQLite (default `ops/venture.sqlite`); **LEDGER.md** is generated from the store. CEO uses venture tools (`ventures_list`, `venture_update`, `venture_create`, `venture_mark_killed`, `venture_capital_status`). Heartbeat script gets active venture IDs via `venture list --status active --ids-only` and runs `venture:tick` for each.
+- [ ] **Dry run** — Run `./scripts/daily-board-ceo.sh` (or separately `./scripts/board-meeting.sh` then `./scripts/ceo-implement.sh`), then `./scripts/ceo-heartbeat.sh`. Confirm coordinator decision is valid, CEO runs and updates venture store, and venture tick runs for each active venture.
+- [ ] **AgentForge dry-run** — Run `./scripts/agentforge-dry-run.sh` to verify crontab, config path, and gateway. Optionally `./scripts/agentforge-dry-run.sh --probe` to test one short CEO run.
 
-**Resilience – 429 and model fallbacks:** Ensure `agents.defaults.model.fallbacks` (or per-agent fallbacks) is set so one provider (e.g. 429 rate limit) does not permanently stall the loop. 429 and transient errors should trigger retry or fallback; the CEO and board should not stall indefinitely on a single provider. See [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai) and [Gemini daily quota exceeded (graceful fallback)](#gemini-daily-quota-exceeded-graceful-fallback) below.
+**Resilience – 429 and fallbacks:** Ensure `agents.defaults.model.fallbacks` is set so one provider (e.g. 429) does not permanently stall the loop. See [429 and fallbacks](#429-resource_exhausted-but-fallback-not-trying-openai) and [Gemini quota](#gemini-daily-quota-exceeded-graceful-fallback) below.
 
 ---
 
@@ -47,7 +69,7 @@ sudo systemctl status agentforge-gateway
 curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/
 ```
 
-Expect: `active (running)` and `200` or `302`. If not: `sudo systemctl restart agentforge-gateway` and check logs with `sudo journalctl -u agentforge-gateway -n 100`.
+Expect: `active (running)` and `200` or `302`. If not: `sudo systemctl restart agentforge-gateway` and check logs: `sudo journalctl -u agentforge-gateway -n 100`.
 
 ### 2. Cron is running
 
@@ -58,24 +80,25 @@ sudo systemctl status cron
 crontab -l
 ```
 
-You should see an entry for the daily pipeline (e.g. `daily-board-ceo.sh` at 9am) and CEO heartbeat every 30 min; or separate board 9am and CEO implement 10am. If cron is off: `sudo systemctl start cron`.
+You should see the daily pipeline (e.g. `daily-board-ceo.sh` at 9am) and CEO heartbeat every 30 min. If cron is off: `sudo systemctl start cron`.
 
-### 2b. Cron environment (state dir and config path)
+### 2.1. Cron environment (state dir and config path)
 
-**When:** After deployment or if cron runs but the CEO heartbeat log shows "agent run failed (exit code N)" and manual `node dist/entry.js agent --agent ceo --message "Test"` works when you run it in a shell.
+**When:** After deployment or if cron runs but the CEO heartbeat log shows "agent run failed (exit code N)" and manual `node dist/entry.js agent --agent ceo --message "Test"` works in your shell.
 
-Cron runs with a minimal environment. The CLI loads config from `OPENCLAW_STATE_DIR` or `CLAWDBOT_STATE_DIR` (or falls back to `~/.openclaw` / `~/.clawdbot`). If your config and agents live under `~/.moltbot`, set the state dir so cron uses the same config as when you run manually.
+Cron runs with a minimal environment. The CLI loads config from `OPENCLAW_STATE_DIR` or `CLAWDBOT_STATE_DIR` (fallback: `~/.openclaw` / `~/.clawdbot`). If your config and agents live under `~/.moltbot`, set the state dir so cron uses the same config.
 
-**Option 1 – set in crontab:** Prefix each cron line with env vars, e.g.:
+**Option 1 – set in crontab:** Prefix each cron line with env vars:
 
 ```bash
-OPENCLAW_STATE_DIR=$HOME/.moltbot CLAWDBOT_STATE_DIR=$HOME/.moltbot
-*/30 * * * * cd /home/agentforge/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
+OPENCLAW_STATE_DIR=$HOME/.moltbot
+0 9 * * * cd /path/to/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1
+*/30 * * * * cd /path/to/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
 ```
 
-**Option 2 – source env in the script:** Create `~/.moltbot/agentforge-env` (or similar) with `export OPENCLAW_STATE_DIR=$HOME/.moltbot` and at the top of `ceo-heartbeat.sh` add `[ -f ~/.moltbot/agentforge-env ] && . ~/.moltbot/agentforge-env` (only if you adopt this convention).
+**Option 2 – source env in the script:** Create `~/.moltbot/agentforge-env` with `export OPENCLAW_STATE_DIR=$HOME/.moltbot` and at the top of `ceo-heartbeat.sh` add `[ -f ~/.moltbot/agentforge-env ] && . ~/.moltbot/agentforge-env` (only if you adopt this convention).
 
-**Verify:** Run the heartbeat script once from a clean env that mimics cron: `env -i HOME=$HOME OPENCLAW_STATE_DIR=$HOME/.moltbot bash -c 'cd /path/to/agentforge && ./scripts/ceo-heartbeat.sh'` and confirm it completes without "agent run failed".
+**Verify:** Run from a minimal env that mimics cron: `env -i HOME=$HOME OPENCLAW_STATE_DIR=$HOME/.moltbot bash -c 'cd /path/to/agentforge && ./scripts/ceo-heartbeat.sh'` and confirm it completes without "agent run failed".
 
 ### 3. CEO heartbeat ran (and where to see the report)
 
@@ -85,7 +108,7 @@ OPENCLAW_STATE_DIR=$HOME/.moltbot CLAWDBOT_STATE_DIR=$HOME/.moltbot
 tail -n 30 /tmp/agentforge-heartbeat.log
 ```
 
-The log shows **completion or failure lines** (e.g. `[Fri Jan 30 14:30:36 UTC 2026] CEO heartbeat completed` or `CEO heartbeat agent run failed (exit code N)` / `CEO heartbeat finished (agent had exit code N)`). It may also show "Running venture tick for INV-XXX". It does **not** contain the CEO's full written report.
+The log shows **completion or failure** (e.g. `CEO heartbeat completed` or `CEO heartbeat agent run failed (exit code N)`). It does **not** contain the CEO’s full written report.
 
 To see the **actual CEO status report** (RED/GREEN, ventures, workers, next steps), open the CEO session and read the latest message:
 
@@ -93,262 +116,159 @@ To see the **actual CEO status report** (RED/GREEN, ventures, workers, next step
 node dist/entry.js tui --session agent:ceo:main
 ```
 
-Scroll to the most recent CEO reply to the heartbeat prompt; that's where the status, actions, and next steps appear. RED in that reply usually means something needs you (e.g. human request, worker stuck).
+Scroll to the most recent CEO reply; that’s where the status, actions, and next steps appear. RED usually means something needs you (e.g. human request, worker stuck).
 
 ### 4. Human requests (only when they exist)
 
 **When:** When the heartbeat says “waiting for Human response” or you see a REQ-XXX.
 
-If the CEO reports waiting for human or the loop seems stuck, check pending requests and approve or respond so the loop can proceed.
-
-**Read / list requests:**
+**List / read requests:**
 
 ```bash
-# List request files on disk
 ls ~/.moltbot/human-requests/
-
-# List all requests (JSON) via gateway
 node dist/entry.js gateway call human.requests.list --params '{}'
-
-# Read a specific request (e.g. REQ-1875FC19): file on disk or via gateway
 cat ~/.moltbot/human-requests/*REQ-1875FC19* | jq .
-# or: node dist/entry.js gateway call human.requests.get --params '{"requestId":"REQ-1875FC19"}'
 ```
 
-Each request file (or `human.requests.get` result) has `title`, `description`, `suggestedAction`, `priority`, `category`, and `status`. Use those to decide what to provide.
-
-**Gmail for agents:** To give agents full access to a dedicated Gmail account (read, send, search), see [Gmail agent access](docs/start/gmail-agent-access.md). Recommended: **Himalaya** (IMAP/SMTP, least fragile). Optional: Gmail Pub/Sub + gog for push-triggered wake.
-
-**If there are pending requests,** provide what’s needed (e.g. API token), set it in config, then approve:
+**Approve after providing what’s needed:**
 
 ```bash
 node dist/entry.js gateway call human.requests.respond --params '{"requestId":"REQ-XXXXX","action":"approved","response":"Done. Token set in config."}'
 ```
 
-Replace `REQ-XXXXX` and the response text. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Step 12 for details.
+See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Step 12 for details. For Gmail agent access see [docs/start/gmail-agent-access.md](docs/start/gmail-agent-access.md).
 
-### 5. Subagent concurrency limit
+### 5. Subagent concurrency limit (optional)
 
-Spawned workers share a **global concurrency limit**: `agents.defaults.subagents.maxConcurrent` (default **8**). At most 8 worker runs at once; more spawns queue. If the CEO should run more workers in parallel, raise the limit in config (e.g. `agents.defaults.subagents.maxConcurrent: 16`) and restart the gateway. The default is defined in [src/config/agent-limits.ts](src/config/agent-limits.ts) as `DEFAULT_SUBAGENT_MAX_CONCURRENT`.
+Spawned workers share **global concurrency**: `agents.defaults.subagents.maxConcurrent` (default **8**). To run more workers in parallel, raise it in config (e.g. `16`) and restart the gateway. Defined in [src/config/agent-limits.ts](src/config/agent-limits.ts).
 
-### 6. Investments and capital (optional)
-
-**When:** When you want to see what’s being built and spent.
+### 6. Investments and LEDGER (optional)
 
 ```bash
 cat ~/.moltbot/agents/ceo/LEDGER.md
 ```
 
-Shows active ventures, spend, revenue, and status. For a TUI: `node dist/entry.js portal` (run `node scripts/sync-ledger.mjs` first so portal matches LEDGER).
+For TUI: `node dist/entry.js portal` (run `node scripts/sync-ledger.mjs` first so portal matches LEDGER).
 
-### 7. CEO multi-venture (optional)
+### 7. CEO multi-venture cap (optional)
 
-The CEO may work on **multiple ventures at once** when each venture fits within available capital and the CEO has capacity (as defined in the CEO SOUL). To cap concurrency, set a hard limit in config:
+To cap how many ventures the CEO runs at once, set in config:
 
 ```json
-"humanInterface": {
-  "agentforge": {
-    "ventures": { "maxActive": 3 }
-  }
-}
+"humanInterface": { "agentforge": { "ventures": { "maxActive": 3 } } }
 ```
 
-Omit `ventures.maxActive` for no hard limit (CEO uses judgment). Budget is always enforced by the system.
+Omit for no hard limit. Budget is always enforced.
 
 ### 8. Telegram / WhatsApp (optional)
 
-**When:** If you enabled Telegram or WhatsApp and want to confirm they are up. Channels start with the gateway; if the gateway is healthy and config has `channels.telegram` or `channels.whatsapp`, they are active. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) “Optional: Telegram and WhatsApp” and [docs/start/agentforge-channels.md](docs/start/agentforge-channels.md).
+If enabled, channels start with the gateway. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) “Optional: Telegram and WhatsApp” and [docs/start/agentforge-channels.md](docs/start/agentforge-channels.md).
 
-### 9. Payment card (Investment Portal)
+### 9. Payment card (Investment Portal) (optional)
 
-**When:** You want the CEO to spend from a single virtual card (e.g. $20 prepaid) without giving raw card details in chat.
-
-1. **Add a card in the portal:** Run `node dist/entry.js portal` (or your portal command). Go to **Settings** (tab 5), then press **c**. Fill in card number, CVV, expiry (MM/YY), cardholder name, and **Card Limit** (the amount on the card, e.g. 20). Submit with Enter; Esc cancels.
-2. **Encryption key:** Card data is encrypted with AES-256-GCM. The key comes from config `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` (base64) or env `AGENTFORGE_CARD_KEY`. If you add a card and the console prints "Generated new encryption key", **persist that key** (e.g. set `cardEncryptionKeyId` in config or `AGENTFORGE_CARD_KEY` in your env) so the same key is used after restart; otherwise decryption will fail.
-3. **Stripe:** The CEO uses the `capital_charge_active_card` tool to charge the stored card. Stripe must be configured (e.g. `STRIPE_SECRET_KEY` in config or env) and enabled. Each charge deducts from the card's balance; the tool returns the **new remaining balance** after each successful charge. The CEO should not charge more than the remaining balance.
+1. Run `node dist/entry.js portal` → **Settings** (tab 5) → **c** → fill card number, CVV, expiry, cardholder name, **Card Limit**.
+2. **Encryption key:** From config `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` or env `AGENTFORGE_CARD_KEY`. If the console prints "Generated new encryption key", **persist that key** or decryption will fail after restart.
+3. **Stripe:** CEO uses `capital_charge_active_card`; Stripe must be configured. Each charge deducts from the card balance; the tool returns the new remaining balance.
 
 ---
 
 ## When to intervene
 
-| Situation | What to do |
-|-----------|------------|
+| Situation | Action |
+|-----------|--------|
 | Gateway down or unhealthy | `sudo systemctl restart agentforge-gateway`; check `journalctl` if it keeps failing. |
 | Cron not running | `sudo systemctl start cron`; fix crontab with `crontab -e` if entries are missing. |
-| Human request pending (REQ-XXX) | Provide the requested item (e.g. token), set in config, then approve via `gateway call human.requests.respond` (see above). |
-| Worker unreachable / timeouts | Restart gateway; check logs. If a worker is stuck, you can ask the CEO to spawn a fresh worker for that venture. |
-| “gh: command not found” or similar | Install missing CLI (e.g. `sudo apt install -y gh`) and ensure it’s on the PATH the gateway uses; restart gateway. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Troubleshooting. |
+| Human request pending (REQ-XXX) | Provide the requested item, set in config, then approve via `gateway call human.requests.respond` (see above). |
+| Worker unreachable / timeouts | Restart gateway; check logs. If a worker is stuck, ask the CEO to spawn a fresh worker for that venture. |
+| “gh: command not found” or similar | Install missing CLI (e.g. `sudo apt install -y gh`) and ensure it’s on the PATH the gateway uses; restart gateway. |
 | Out of disk or memory | Free space; add swap if needed; restart gateway. Consider upgrading the VPS. |
 
-### TUI shows “(no output)” or “(tool calls only)”
+---
 
-- **“(no output)”** – The agent finished a turn but returned no text (e.g. empty reply, or the model sent nothing). Try sending your message again; if it keeps happening, check gateway logs and model/API status.
-- **“(tool calls only)”** – The agent replied with **only** tool calls (e.g. “I’ll use the browser to post…”). The run is still in progress: tools run on the gateway, then the agent gets the results and may send a text reply in a later turn. Wait a bit and scroll for the next assistant message, or check gateway logs to see tool execution.
+### Troubleshooting
 
-If the session stays **idle** with no further messages, the run may have errored or the model may have stopped without a follow-up. Use `/status` in the TUI and check `journalctl -u agentforge-gateway -n 100` for errors.
+#### TUI shows “(no output)” or “(tool calls only)”
 
-### TUI: works when opening session, fails when sending in already-open session
+- **“(no output)”** – The agent finished a turn but returned no text. Try sending again; if it persists, check gateway logs and model/API status.
+- **“(tool calls only)”** – The agent replied with only tool calls. The run is still in progress; wait for the next assistant message or check gateway logs.
 
-If opening the CEO session works (history loads, first message may work) but sending a message in the **already-open** session gives “(no output)” or no reply:
+If the session stays **idle**, the run may have errored. Use `/status` in the TUI and `journalctl -u agentforge-gateway -n 100` for errors.
 
-1. **Run failed (429 / fallback failed)** – The run may be failing (e.g. Gemini 429 then OpenAI also fails). The gateway should then emit a chat **error** event so the TUI shows “run error: …”. If you see “(no output)” instead, check gateway logs at the time you sent the message:  
-   `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -E 'FailoverError|429|error|lane'`  
-   If you see `FailoverError` or 429 there, the run failed; the TUI may not be receiving the error event (e.g. wrong runId or session filter). As a **workaround**: close the TUI and reopen the session, then send again; or wait for quota to reset and retry.
+#### TUI: works when opening session, fails when sending in already-open session
 
-2. **Run completed with no text** – The run may be **completing** with no assistant text (e.g. model returned only tool calls or empty). In that case you get “(no output)” or “(tool calls only)” and no “run error”. Wait a bit for a follow-up message, or send a short follow-up (e.g. “ok?”).
+1. **Run failed (429 / fallback failed)** – Check gateway logs: `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -E 'FailoverError|429|error|lane'`. If you see `FailoverError` or 429, fix fallbacks (see below) or wait for quota to reset. Workaround: close and reopen the session, then send again.
+2. **Run completed with no text** – Model may have returned only tool calls or empty. Wait for a follow-up or send a short “ok?”.
+3. **Lane / queue** – Previous run may still be in progress or failed without clearing. Check logs for “lane task error” or “lane wait exceeded”.
 
-3. **Lane / queue** – If the CEO session is on a lane and the previous run is still in progress or failed without clearing, the next message might queue and then fail. Check logs for “lane task error” or “lane wait exceeded”.
+#### Browser act fails with “fields are required”
 
-**Quick check:** When it happens, run `sudo journalctl -u agentforge-gateway -n 50 --no-pager` and look for the time you sent the message; that will show whether the run failed (error/429) or completed (and with what).
+The **fill** action expects `fields: [ { ref: "<aria ref>", type: "text"|"checkbox"|…, value?: … }, … ]`. If the model sends a different shape, the service returns “fields are required”. Use manual credential entry or human intervention for sign-up when automation can’t succeed. Browser control runs only where the gateway runs (e.g. Mac with Moltbot.app and Chrome + Browser Relay). On a VPS, browser tools work only if a browser-capable node is connected.
 
-### Browser act fails with “fields are required”
+#### Browser automation intermittent
 
-This happens when the agent uses **browser act** with action **fill** but the `fields` array is missing, empty, or has items without `ref` and `type`. The fill action expects: `fields: [ { ref: "<aria ref>", type: "text"|"checkbox"|…, value?: … }, … ]`. If the model sends a different shape (e.g. `selector` instead of `ref`), entries are dropped and the service returns “fields are required”.
+If you see **"Can't reach the clawd browser control service (timed out...)"**:
 
-- **On the next run** the improved error message tells the model the exact expected shape so it can retry with correct fields.
-- **Workaround:** Use manual credential entry or human intervention for sign-up (as the CEO concluded). Browser automation for form fill is best when the model gets a snapshot first and emits fields with `ref`/`type` from the snapshot’s refs.
+- Ensure the gateway is running before browser automation.
+- On Linux, prefer Google Chrome over snap Chromium; see [browser Linux troubleshooting](docs/tools/browser-linux-troubleshooting.md) if present.
+- Optional: set `browser.requestTimeoutMs` (e.g. `15000`) in config.
 
-Note: The browser control service runs only where the gateway runs (e.g. Mac with Moltbot.app and Chrome + Browser Relay extension). On a VPS, `browser.open`/`snapshot`/`act` only work if a browser-capable **node** is connected; otherwise use manual sign-up and credentials.
+**Browser vs request_human:** Use the **browser** for research and simple actions. Treat sign-up flows that require CAPTCHA, 2FA, or KYC as **request_human** so the CEO doesn’t stall on automation failures.
 
-### Browser automation intermittent
+#### Complete VPS browser setup
 
-If you see **"Can't reach the clawd browser control service (timed out...)"** or similar:
+For reliable browser control on VPS:
 
-- Ensure the gateway is running before browser automation (start Moltbot.app or `moltbot gateway run`).
-- On Linux, prefer Google Chrome over snap Chromium when possible; see [browser Linux troubleshooting](docs/tools/browser-linux-troubleshooting.md) if present.
-- Optional: set `browser.requestTimeoutMs` (e.g. `15000`) in config if the first request often times out (default 10s, clamped 5–60s).
-- If the default profile (e.g. clawd) is unreachable, the client will try the other profile (e.g. chrome extension relay) once before failing.
+1. **Install Google Chrome (not snap Chromium):**  
+   `wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb` then `sudo dpkg -i google-chrome-stable_current_amd64.deb` and `sudo apt --fix-broken install -y`.
+2. **Install Playwright:** `cd ~/agentforge && pnpx playwright install chrome`.
+3. **Config (moltbot.json):** Add/merge:
+   ```json
+   "browser": {
+     "enabled": true,
+     "defaultProfile": "clawd",
+     "executablePath": "/usr/bin/google-chrome-stable",
+     "headless": true,
+     "noSandbox": true,
+     "requestTimeoutMs": 15000,
+     "remoteCdpTimeoutMs": 3000,
+     "remoteCdpHandshakeTimeoutMs": 5000
+   }
+   ```
+4. **Restart gateway:** `sudo systemctl restart agentforge-gateway`.
+5. **Verify:** `curl -s http://127.0.0.1:18791/ | jq '{running, pid, chosenBrowser}'` and `node dist/entry.js browser --browser-profile clawd status`.
 
-### Complete VPS Browser Setup (for consistent automation)
+Troubleshooting: “Failed to start Chrome CDP” → use Google Chrome .deb, not snap. Timeouts → increase `requestTimeoutMs`. “Chrome extension relay… no tab” → use `defaultProfile: "clawd"`. Check logs: `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -i browser`.
 
-For reliable browser control on VPS, follow this complete setup:
+#### 429 RESOURCE_EXHAUSTED but fallback not trying OpenAI
 
-**1. Install Google Chrome (not snap Chromium):**
-```bash
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo dpkg -i google-chrome-stable_current_amd64.deb
-sudo apt --fix-broken install -y
-```
+1. **Confirm gateway is new build** — `ps -eo pid,lstart,cmd | grep -E 'gateway|node.*entry'`; restart if needed.
+2. **Confirm default fallbacks** — `cat ~/.clawdbot/moltbot.json | jq '.agents.defaults.model'` should show `"fallbacks": ["openai/gpt-5-mini"]` (or your fallback). If `agents.defaults.model` is a string, replace with an object that has `primary` and `fallbacks` (see VPS_DEPLOYMENT_GUIDE Step 5b).
+3. **Confirm OpenAI configured** — `jq '.models.providers.openai' ~/.clawdbot/moltbot.json` should have `apiKey` and `models` with your fallback model id.
+4. **Check gateway logs** — `sudo journalctl -u agentforge-gateway -n 200 --no-pager | grep -iE 'fallback|openai|429|exhausted'`.
+5. **Optional: set CEO fallbacks explicitly** — `jq '(.agents.list[] | select(.id == "ceo") | .model.fallbacks) = ["openai/gpt-5-mini"]' ~/.clawdbot/moltbot.json > /tmp/c.json && mv /tmp/c.json ~/.clawdbot/moltbot.json` then restart.
 
-**2. Install Playwright browsers:**
-```bash
-cd ~/agentforge
-pnpx playwright install chrome
-```
+#### Gemini daily quota exceeded (graceful fallback)
 
-**3. Configure browser in moltbot.json:**
-```bash
-jq '.browser = {
-  "enabled": true,
-  "defaultProfile": "clawd",
-  "executablePath": "/usr/bin/google-chrome-stable",
-  "headless": true,
-  "noSandbox": true,
-  "requestTimeoutMs": 15000,
-  "remoteCdpTimeoutMs": 3000,
-  "remoteCdpHandshakeTimeoutMs": 5000
-}' ~/.clawdbot/moltbot.json > /tmp/config.json && mv /tmp/config.json ~/.clawdbot/moltbot.json
-```
+When Gemini hits its daily limit (429), the system tries the fallback if `agents.defaults.model.fallbacks` is set. You’ll see a log line like “Primary google/gemini-2.0-flash returned rate_limit (attempt 1/2), trying fallback”. Optional config: `agents.defaults.model.rateLimitCooldownMinutes` (default 15).
 
-**4. Restart gateway:**
-```bash
-sudo systemctl restart agentforge-gateway
-```
+#### Lane task error / FailoverError in logs
 
-**5. Verify browser status:**
-```bash
-# Check browser control service status
-curl -s http://127.0.0.1:18791/ | jq '{running, pid, chosenBrowser}'
+- **lane wait exceeded** – Run waited in the lane queue; normal under load.
+- **lane task error … FailoverError … 429** – Rate limit and fallback failed or not configured. Fix fallbacks (see above) or wait for quota, then retry.
 
-# Test browser startup
-curl -s -X POST http://127.0.0.1:18791/start
-curl -s http://127.0.0.1:18791/tabs
+#### Moltbook API 500 / SSL error
 
-# CLI test
-node dist/entry.js browser --browser-profile clawd status
-node dist/entry.js browser --browser-profile clawd open https://example.com
-node dist/entry.js browser --browser-profile clawd snapshot
-```
+During a board meeting, the PR Lead may report Moltbook API 500 or SSL. They are instructed to state the failure and offer to paste the draft for manual publish. Check `MOLTBOOK_API_KEY` and Moltbook service status; if the API is down, use the manual paste from the PR Lead’s message in `agent:pr:main`.
 
-**Browser config options:**
-| Option | Description | Recommended VPS Value |
-|--------|-------------|----------------------|
-| `enabled` | Enable browser control | `true` |
-| `defaultProfile` | Profile for agents to use | `"clawd"` |
-| `executablePath` | Path to Chrome binary | `"/usr/bin/google-chrome-stable"` |
-| `headless` | Run without GUI | `true` |
-| `noSandbox` | Required for VPS | `true` |
-| `requestTimeoutMs` | Tool call timeout | `15000` (15s) |
-| `remoteCdpTimeoutMs` | CDP HTTP timeout | `3000` (3s) |
-| `remoteCdpHandshakeTimeoutMs` | CDP WebSocket timeout | `5000` (5s) |
+#### No git pushes for 20+ hours
 
-**Troubleshooting browser issues:**
-- **"Failed to start Chrome CDP"**: Snap Chromium issue; install Google Chrome .deb
-- **Timeouts on first request**: Increase `requestTimeoutMs` to 15000-30000
-- **"Chrome extension relay is running, but no tab is connected"**: Use `defaultProfile: "clawd"` (managed browser, no extension needed on VPS)
-- **Check gateway logs**: `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -i browser`
-
-**Browser vs request_human:** Use the **browser** for research and simple actions (e.g. reading a page, clicking a known button). Treat sign-up flows that require CAPTCHA, 2FA push, or KYC as **request_human**; the CEO (or provisioning flow) should not get stuck retrying automation that cannot succeed. Use request_human when the flow requires human-only steps so the CEO does not stall on automation failures.
-
-### 429 RESOURCE_EXHAUSTED but fallback not trying OpenAI
-
-If you still see only Gemini in the footer and 429 errors after setting `agents.defaults.model.fallbacks` and deploying the fallback fix:
-
-1. **Confirm the gateway is running the new build**  
-   Check process start time and that it’s using the repo you updated:  
-   `ps -eo pid,lstart,cmd | grep -E 'gateway|node.*entry'`  
-   Restart again if needed: `sudo systemctl restart agentforge-gateway`.
-
-2. **Confirm default fallbacks in config**  
-   On the VPS (as the user that runs the gateway, e.g. `agentforge`):  
-   `cat ~/.clawdbot/moltbot.json | jq '.agents.defaults.model'`  
-   You should see `"fallbacks": ["openai/gpt-5-mini"]` (or your fallback model). If `agents.defaults.model` is a string, replace it with an object that has `primary` and `fallbacks` (see VPS_DEPLOYMENT_GUIDE Step 5b).
-
-3. **Confirm OpenAI is configured**  
-   `cat ~/.clawdbot/moltbot.json | jq '.models.providers.openai'`  
-   There should be `apiKey` (or env reference) and `models` with your fallback model id (e.g. `gpt-5-mini`). If missing, add the OpenAI provider (VPS_DEPLOYMENT_GUIDE Step 5b).
-
-4. **Check gateway logs for fallback attempts**  
-   `sudo journalctl -u agentforge-gateway -n 200 --no-pager | grep -iE 'fallback|openai|429|exhausted'`  
-   If you see a fallback attempt to OpenAI and then another error, the issue may be OpenAI (key, quota, or model id). If you never see OpenAI in the logs, the 429 may be on a path that doesn’t use model fallback, or the config isn’t being read as expected.
-
-5. **Optional: set CEO fallbacks explicitly**  
-   If defaults still don’t apply, set the CEO’s model fallbacks in config:  
-   `jq '(.agents.list[] | select(.id == "ceo") | .model.fallbacks) = ["openai/gpt-5-mini"]' ~/.clawdbot/moltbot.json > /tmp/c.json && mv /tmp/c.json ~/.clawdbot/moltbot.json`  
-   Then restart the gateway.
-
-### Gemini daily quota exceeded (graceful fallback)
-
-When Gemini hits its daily limit (429 "You exceeded your current quota"), the system will try the fallback model if `agents.defaults.model.fallbacks` (or the agent’s fallbacks) are set. You’ll see a short log line like:
-
-`Primary google/gemini-2.0-flash returned rate_limit (attempt 1/2), trying fallback`
-
-and the run continues on the fallback (e.g. OpenAI). Subagents spawned during that run use the same effective model (the fallback), so they do not spin up on the rate-limited primary.
-
-**Rate-limit cooldown:** After a 429, the primary provider/model is put in cooldown (default 15 minutes). The next runs skip it and go straight to the fallback, so decisions are not delayed by retrying the rate-limited model on every run. Optional config: `agents.defaults.model.rateLimitCooldownMinutes` (number, max 1440); omit to use the 15-minute default.
-
-The TUI and assistant bubble show a short message (e.g. "HTTP 429: You exceeded your current quota...") instead of the full error JSON. If you still see repeated full "LLM error: { ... }" dumps, ensure fallbacks are configured (see [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai)) and that the gateway is running the latest build.
-
-### Lane task error / FailoverError in logs
-
-If you see `lane task error` or `FailoverError` with `429` in gateway logs:
-
-- **lane wait exceeded** – The run waited in the lane queue (e.g. another run was using the same lane). Normal under load; if it happens often, consider increasing lane capacity or reducing concurrent runs.
-- **lane task error … FailoverError … 429** – The run hit a rate limit (or similar) and fallback either failed too or wasn't configured. The TUI should show the error in the assistant bubble and a system line "run error: …". Fix fallbacks (see [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai)) or wait for quota to reset, then retry.
-
-### Moltbook API 500 / SSL error
-
-During a board meeting, the **PR Lead** may report that the Moltbook API returned 500 or an SSL error. The PR Lead and coordinator are instructed to handle this: the PR Lead will state the failure clearly and offer to paste the exact draft for manual publish (they do not fabricate a URL). **What to do:** Check `MOLTBOOK_API_KEY` and Moltbook service status (https://www.moltbook.com). If the API is down or unreachable, use the manual paste: read the PR Lead's latest message in `agent:pr:main` and copy the draft content they provide, then publish it yourself on Moltbook (web or API when back up).
-
-### No git pushes for 20+ hours
-
-CEO heartbeat is supposed to enforce constant development (spawn/nudge if no progress in 12h). If a venture repo has had no pushes for 20+ hours, check: (1) CEO session for heartbeat replies and whether they spawned or nudged dev, (2) worker sessions for BLOCKED/PROGRESS, (3) gateway/logs for 429 or run failures. Fix blockers (e.g. unblock worker, add fallbacks); next heartbeat should then trigger development.
+CEO heartbeat should enforce development (spawn/nudge if no progress in 12h). If a venture repo has had no pushes for 20+ hours, check: (1) CEO session for heartbeat replies and spawn/nudge, (2) worker sessions for BLOCKED/PROGRESS, (3) gateway/logs for 429 or run failures. Fix blockers; next heartbeat should then trigger development.
 
 ---
 
 ## Updating code
 
-When you pull new code (e.g. from GitHub), rebuild and restart so the gateway and scripts use the new version:
+When you pull new code:
 
 ```bash
 cd ~/agentforge
@@ -359,26 +279,24 @@ pnpm ui:build
 sudo systemctl restart agentforge-gateway
 ```
 
-OR If the SOUL.md of anyrthing is updated:
+If **SOUL.md or agent docs** were updated, re-run init so config and agent files stay in sync:
 
 ```bash
-cd ~/agentforge
-git pull --rebase origin main
-pnpm install
-pnpm build
-pnpm ui:build
-node dist/entry.js init:agentforge  
+node dist/entry.js init:agentforge
 sudo systemctl restart agentforge-gateway
 ```
 
 If `pnpm build` is killed (OOM on small VPS), add swap and/or use the memory-limited build from [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) Troubleshooting.
 
-**If the update adds a new board member** (e.g. PR Lead): re-run init so config gets the new agent, then restart the gateway: `node dist/entry.js init:agentforge` then `sudo systemctl restart agentforge-gateway`. Otherwise you may see "Unknown agent id \"pr\"" when the board meeting or CLI runs that agent.
+**New board member:** Re-run init so config gets the new agent, then restart gateway; otherwise you may see "Unknown agent id \"pr\"".
+
+**Cron template:** Init writes `~/.moltbot/agentforge-cron.txt` with the **single daily pipeline** at 9am (`daily-board-ceo.sh`) and CEO heartbeat every 30 min. If you see the **old** template (separate "9am board meeting" and "10am CEO implement"), you ran init from **stale compiled code**. Run `pnpm build` then `node dist/entry.js init:agentforge` again so the template is refreshed.
 
 **What init overwrites (and what it doesn’t):**
-- **Crontab:** Init does **not** change your installed crontab. It only overwrites the **template** file `~/.moltbot/agentforge-cron.txt`. Your `crontab -l` is untouched; any custom cron lines you added stay.
-- **Config (moltbot.json):** Init **merges** with existing config but **replaces** `agents.list` (full list of 10 agents) and overwrites `agents.defaults` (model, imageModel, subagents, budget). Other keys (API keys, `gateway.auth`, browser, channels, `humanInterface`, etc.) are **preserved**. So **GitHub, Vercel, Cloudflare, and other credentials** (in config or env) are **not** touched; the system still “knows” it has access to them.
-- **Agent workspaces (~/.moltbot/agents/):** Init copies SOUL.md, AGENTS.md, HEARTBEAT.md, etc. from the repo. **LEDGER.md and MEMORY.md are preserved** when they already exist (so project/venture data and agent memory are **not** wiped on re-init). SOUL.md is overwritten (repo version wins); session transcripts live under `sessions/` and are never copied from the repo, so they stay.
+
+- **Crontab:** Init does **not** change your installed crontab. It only overwrites the **template** `~/.moltbot/agentforge-cron.txt`. Your `crontab -l` is untouched.
+- **Config (moltbot.json):** Init **merges** but **replaces** `agents.list` and overwrites `agents.defaults`. Other keys (API keys, gateway.auth, browser, channels, humanInterface, etc.) are **preserved**.
+- **Agent workspaces (~/.moltbot/agents/):** Init copies SOUL.md, AGENTS.md, HEARTBEAT.md from the repo. **LEDGER.md and MEMORY.md are preserved** when they already exist. Session transcripts are never copied from the repo.
 
 ---
 
@@ -389,29 +307,55 @@ If `pnpm build` is killed (OOM on small VPS), add swap and/or use the memory-lim
 | Gateway status | `sudo systemctl status agentforge-gateway` |
 | Restart gateway | `sudo systemctl restart agentforge-gateway` |
 | Gateway logs | `sudo journalctl -u agentforge-gateway -f` |
-| Heartbeat ran (completion only) | `tail -n 30 /tmp/agentforge-heartbeat.log` |
-| CEO status report (RED/GREEN, etc.) | `node dist/entry.js tui --session agent:ceo:main` (read latest reply) |
-| CEO / board logs | `tail -f /tmp/agentforge-ceo.log`, `tail -f /tmp/agentforge-board.log` |
+| Heartbeat completion | `tail -n 30 /tmp/agentforge-heartbeat.log` |
+| CEO status report | `node dist/entry.js tui --session agent:ceo:main` (read latest reply) |
+| Board / CEO logs | `tail -f /tmp/agentforge-board.log`, `tail -f /tmp/agentforge-ceo.log` |
+| Run board meeting (TUI) | `./scripts/board-meeting.sh --tui` |
+| Run daily pipeline | `./scripts/daily-board-ceo.sh` (or `--tui` for live view) |
 | LEDGER | `cat ~/.moltbot/agents/ceo/LEDGER.md` |
 | Portal (TUI) | `node dist/entry.js portal` |
 | Approve human request | `node dist/entry.js gateway call human.requests.respond --params '{"requestId":"REQ-XXX","action":"approved","response":"..."}'` |
 
 ---
 
+## System overview
+
+### Venture store (source of truth)
+
+Venture state lives in SQLite (default agent workspace `ops/venture.sqlite`). **LEDGER.md** is generated from the store (e.g. by `scripts/sync-ledger.mjs --to-markdown` or when the CEO uses venture tools). The CEO should use **ventures_list**, **venture_get**, **venture_update**, **venture_create**, **venture_mark_killed**, and **venture_capital_status** to read/write state. The heartbeat script gets active venture IDs via `venture list --status active --ids-only` and runs `venture:tick` for each.
+
+### Single daily pipeline
+
+**Script:** `scripts/daily-board-ceo.sh` — board meeting → coordinator (writes decision to store) → CEO implement in one process. Use one cron entry (e.g. 9am). Ensures the coordinator output is in the decision store before CEO implement runs. Optional: `--tui` for live view.
+
+**Cron example:**
+
+```bash
+0 9 * * * cd /path/to/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1
+```
+
+### Board meeting (manual or via daily pipeline)
+
+For interactive TUI: `./scripts/board-meeting.sh --tui`. The daily pipeline runs it non-interactively at 9am.
+
+### Why we build on OpenClaw
+
+AgentForge uses **OpenClaw** (messaging gateway + Pi-style agent runtime) for: session store, tool execution (exec, browser, sandbox), model fallback, compaction; multi-agent sessions and lanes; optional channels (Telegram, WhatsApp, etc.); and rich tools (exec, browser, web_search, message, gateway, venture tools, capital_charge, board_decision, human_request). Past failures to run autonomously were **orchestration and data flow** (wrong agent on heartbeat, cron env, coordinator handoff, LEDGER vs store); we improve on this base (venture store, single daily pipeline, CEO tools) rather than rewriting.
+
+### Kill-threshold and revenue-loop
+
+- **Kill-threshold:** `venture:tick` evaluates kill switches in the per-venture store (e.g. “no revenue by day 30”). When met, the venture is marked killed in the per-venture and global investment store; LEDGER is regenerated; the CEO is notified.
+- **Revenue-loop:** If a venture has Stripe but zero revenue after N days, consider killing or iterating. Use `ventures_list` or LEDGER; use `venture_mark_killed` or spawn development/marketing as needed.
+
+---
+
 ## Log and disk growth
 
-Cron logs (`/tmp/agentforge-board.log`, `/tmp/agentforge-ceo.log`, `/tmp/agentforge-heartbeat.log`, etc.) and gateway logs (journald) can grow over time. For a week or more of unattended runs:
-
-- **Cron logs:** Optionally truncate or rotate. Example: keep only the last 10,000 lines: `tail -n 10000 /tmp/agentforge-heartbeat.log > /tmp/agentforge-heartbeat.log.tmp && mv /tmp/agentforge-heartbeat.log.tmp /tmp/agentforge-heartbeat.log`. Or use logrotate with a config that rotates `/tmp/agentforge-*.log` by size or daily.
-- **Gateway logs:** journald rotates by default; limit size with `journald.conf` (e.g. `SystemMaxUse=100M` for the journal). View recent: `sudo journalctl -u agentforge-gateway -n 500`.
-
-If disk fills up, cron may stop writing and the gateway may fail; check disk with `df -h` and free space in `/tmp` and the journal.
+Cron logs (`/tmp/agentforge-board.log`, `/tmp/agentforge-ceo.log`, `/tmp/agentforge-heartbeat.log`, etc.) and gateway logs (journald) can grow. Optionally truncate or rotate cron logs (e.g. `tail -n 10000 /tmp/agentforge-heartbeat.log > /tmp/agentforge-heartbeat.log.tmp && mv /tmp/agentforge-heartbeat.log.tmp /tmp/agentforge-heartbeat.log`). journald rotates by default; limit with `journald.conf` (e.g. `SystemMaxUse=100M`). Check disk: `df -h`.
 
 ---
 
 ## Backup (optional)
-
-If you want a simple backup of config and state:
 
 ```bash
 tar -czf agentforge-backup-$(date +%Y%m%d).tar.gz \
@@ -423,48 +367,11 @@ Store the tarball somewhere safe (not only on the same VPS).
 
 ---
 
-## Venture store (source of truth)
-
-Venture state lives in SQLite (default agent workspace `ops/venture.sqlite`). **LEDGER.md** is generated from the store (e.g. by `scripts/sync-ledger.mjs --to-markdown` or when the CEO uses venture tools). The CEO should use **ventures_list**, **venture_get**, **venture_update**, **venture_create**, **venture_mark_killed**, and **venture_capital_status** to read/write state; the heartbeat script gets active venture IDs from the store via `venture list --status active --ids-only` and runs `venture:tick` for each.
-
-## Single daily pipeline
-
-**Script:** `scripts/daily-board-ceo.sh` runs board meeting → coordinator (writes decision to store) → CEO implement in one process. Use one cron entry (e.g. 9am) instead of separate 9am and 10am entries. Ensures coordinator output is in the decision store before CEO implement runs. Optional: pass `--tui` for live view.
-
-**Cron example:** `0 9 * * * cd /path/to/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1`
-
-## Why we build on OpenClaw
-
-AgentForge is built on **OpenClaw** (messaging gateway + Pi-style agent runtime). We keep this base because:
-
-- **Runtime:** Session store, tool execution (exec, browser, sandbox), model fallback, compaction — core to every CEO/board/worker run.
-- **Multi-agent:** `sessions_spawn`, `sessions_send`, `sessions_history`, agent-scoped sessions and lanes — essential for CEO → workers and board → coordinator.
-- **Channels:** Telegram, WhatsApp, Discord, etc. — optional for fully autonomous runs but useful for alerts and human-in-the-loop.
-- **Rich tools:** exec, browser, web_search, message, gateway, venture tools, capital_charge, board_decision, human_request — the framework is OpenClaw; AgentForge adds the business layer.
-
-Past failures to run autonomously were **orchestration and data flow** (wrong agent on heartbeat, cron env, coordinator handoff, LEDGER vs store), not the core runtime. We improve on this base (venture store as source of truth, single daily pipeline, CEO tools) rather than rewriting.
-
-## Kill-threshold and revenue-loop
-
-- **Kill-threshold:** `venture:tick` evaluates kill switches in the per-venture store (e.g. "no revenue by day 30"). When a threshold is met, the venture is marked killed in the **per-venture** store and in the **global** investment store; LEDGER is regenerated; the CEO is notified.
-- **Revenue-loop alert:** If a venture has Stripe configured but zero revenue after N days (e.g. 30), consider killing or iterating. Check ventures via `ventures_list` or LEDGER; use `venture_mark_killed` or spawn development/marketing as needed. Optionally add a cron job or heartbeat step that sends a message to the CEO session when revenue is 0 and `created_at` is older than N days.
-
-## Next steps (later phase)
-
----
-
 ## Summary
 
-1. **Leave it running** – Gateway and cron do the work.
-2. **Check every few days** – Heartbeat log and, if needed, LEDGER.
-3. **Act when needed** – Restart gateway, approve human requests, fix missing tools (e.g. `gh`).
-4. **Update when you pull** – Rebuild and restart the gateway.
+1. **Leave it running** — Gateway and cron do the work.
+2. **Check every few days** — Heartbeat log and, if needed, LEDGER and CEO session.
+3. **Act when needed** — Restart gateway, approve human requests, fix missing tools (e.g. `gh`).
+4. **Update when you pull** — Rebuild and restart the gateway.
 
 For full deployment, troubleshooting, and testing, see [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md).
-
-
-## Running a Board Meeting:
-For TUI:
-```Bash
-   ./scripts/board-meeting.sh --tui
-  ```
