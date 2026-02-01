@@ -60,16 +60,71 @@ export async function parseLedgerMarkdown(
     killedInvestments: [],
   };
 
-  // Parse capital status (allow integers or decimals e.g. $1 or $1.09)
-  const availableMatch = content.match(/\*\*Current Capital Available:\*\*\s*\$(\d+(?:\.\d+)?)/);
-  const earnedMatch = content.match(/\*\*Total Earned \(Lifetime\):\*\*\s*\$(\d+(?:\.\d+)?)/);
-  const spentMatch = content.match(/\*\*Total Spent \(Lifetime\):\*\*\s*\$(\d+(?:\.\d+)?)/);
-  const netMatch = content.match(/\*\*Net Position:\*\*\s*\$?(-?\d+(?:\.\d+)?)/);
-
-  if (availableMatch) result.capital.available = Number.parseFloat(availableMatch[1]);
-  if (earnedMatch) result.capital.earnedLifetime = Number.parseFloat(earnedMatch[1]);
-  if (spentMatch) result.capital.spentLifetime = Number.parseFloat(spentMatch[1]);
-  if (netMatch) result.capital.netPosition = Number.parseFloat(netMatch[1]);
+  // Parse capital status: restrict to capital section to avoid matching table rows, then try multiple formats.
+  const capitalSection =
+    content.match(/##\s*[\s\S]*?CAPITAL STATUS[\s\S]*?(?=##|$)/i)?.[0] ??
+    content.match(/##\s*Capital Status[\s\S]*?(?=##|$)/i)?.[0] ??
+    content;
+  const num = (s: string) => Number.parseFloat(s);
+  const availablePatterns = [
+    /\*\*Current Capital Available:\*\*\s*\$(\d+(?:\.\d+)?)/,
+    /Current Capital Available:\s*\$(\d+(?:\.\d+)?)/i,
+    /Capital Available:\s*\$(\d+(?:\.\d+)?)/i,
+  ];
+  const earnedPatterns = [
+    /\*\*Total Earned \(Lifetime\):\*\*\s*\$(\d+(?:\.\d+)?)/,
+    /Total Earned \(Lifetime\):\s*\$(\d+(?:\.\d+)?)/i,
+    /Total Earned:\s*\$(\d+(?:\.\d+)?)/i,
+    /Earned \(Lifetime\):\s*\$(\d+(?:\.\d+)?)/i,
+    /Earned:\s*\$(\d+(?:\.\d+)?)/i,
+  ];
+  const spentPatterns = [
+    /\*\*Total Spent \(Lifetime\):\*\*\s*\$(\d+(?:\.\d+)?)/,
+    /Total Spent \(Lifetime\):\s*\$(\d+(?:\.\d+)?)/i,
+    /Total Spent:\s*\$(\d+(?:\.\d+)?)/i,
+    /Spent \(Lifetime\):\s*\$(\d+(?:\.\d+)?)/i,
+    /Spent:\s*\$(\d+(?:\.\d+)?)/i,
+  ];
+  const netPatterns = [
+    /\*\*Net Position:\*\*\s*\$?(-?\d+(?:\.\d+)?)/,
+    /Net Position:\s*\$?(-?\d+(?:\.\d+)?)/i,
+    /Net:\s*\$?(-?\d+(?:\.\d+)?)/i,
+  ];
+  for (const re of availablePatterns) {
+    const m = capitalSection.match(re);
+    if (m) {
+      result.capital.available = num(m[1]);
+      break;
+    }
+  }
+  for (const re of earnedPatterns) {
+    const m = capitalSection.match(re);
+    if (m) {
+      result.capital.earnedLifetime = num(m[1]);
+      break;
+    }
+  }
+  for (const re of spentPatterns) {
+    const m = capitalSection.match(re);
+    if (m) {
+      result.capital.spentLifetime = num(m[1]);
+      break;
+    }
+  }
+  for (const re of netPatterns) {
+    const m = capitalSection.match(re);
+    if (m) {
+      result.capital.netPosition = num(m[1]);
+      break;
+    }
+  }
+  // If we got earned/spent but not available, derive available as earned - spent
+  if (
+    result.capital.available === 0 &&
+    (result.capital.earnedLifetime > 0 || result.capital.spentLifetime > 0)
+  ) {
+    result.capital.available = result.capital.earnedLifetime - result.capital.spentLifetime;
+  }
 
   // Parse active investments table
   const activeSection = content.match(/## Active Investments\s+([\s\S]*?)(?=##|$)/);
