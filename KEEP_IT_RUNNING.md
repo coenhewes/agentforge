@@ -303,6 +303,10 @@ If you see `lane task error` or `FailoverError` with `429` in gateway logs:
 - **lane wait exceeded** – The run waited in the lane queue (e.g. another run was using the same lane). Normal under load; if it happens often, consider increasing lane capacity or reducing concurrent runs.
 - **lane task error … FailoverError … 429** – The run hit a rate limit (or similar) and fallback either failed too or wasn't configured. The TUI should show the error in the assistant bubble and a system line "run error: …". Fix fallbacks (see [429 RESOURCE_EXHAUSTED but fallback not trying OpenAI](#429-resource_exhausted-but-fallback-not-trying-openai)) or wait for quota to reset, then retry.
 
+### Moltbook API 500 / SSL error
+
+During a board meeting, the **PR Lead** may report that the Moltbook API returned 500 or an SSL error. The PR Lead and coordinator are instructed to handle this: the PR Lead will state the failure clearly and offer to paste the exact draft for manual publish (they do not fabricate a URL). **What to do:** Check `MOLTBOOK_API_KEY` and Moltbook service status (https://www.moltbook.com). If the API is down or unreachable, use the manual paste: read the PR Lead's latest message in `agent:pr:main` and copy the draft content they provide, then publish it yourself on Moltbook (web or API when back up).
+
 ---
 
 ## Updating code

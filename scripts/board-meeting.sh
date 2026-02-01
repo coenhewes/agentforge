@@ -37,7 +37,9 @@ echo "[$(date)] Triggering analyst (Market Analyst researches opportunities)..."
 TMP_PROMPT=$(mktemp)
 trap 'rm -f "$TMP_PROMPT"' EXIT
 {
-  echo "Board Meeting ${DATE} - YOUR ROLE: Market Analyst. Ignore any previous conversation. Your ONLY task for THIS message is to research NEW market opportunities. Do NOT discuss existing projects, deliver assets, or suggest next steps for current ventures."
+  echo "CRITICAL: This message is Board Meeting Phase 1 only. Your ONLY task is to research NEW market opportunities with the browser. Do NOT discuss existing projects, deploys, CI, or VibeCheckDocs. Ignore any previous conversation in this session."
+  echo ""
+  echo "Board Meeting ${DATE} - YOUR ROLE: Market Analyst."
   echo ""
   echo "Portfolio context: we may have existing ventures; your output must be ONLY new opportunity research (3-5 opportunities with evidence). Do not suggest waitlists, CSVs, templates, or next-step deliverables."
   echo ""
@@ -48,6 +50,8 @@ trap 'rm -f "$TMP_PROMPT"' EXIT
   echo "2. Check Product Hunt for trending products and competitor pricing"
   echo "3. Search Twitter/X for complaints about existing tools"
   echo "4. Identify 3 REAL market opportunities with DATA"
+  echo ""
+  echo "You MUST label each opportunity as Opportunity 1: [short name], Opportunity 2: [short name], Opportunity 3: [short name] (e.g. Opportunity 1: Docs→Publish, Opportunity 2: AIBilling Firewall, Opportunity 3: WASM Sandbox) so the board can reference them consistently."
   echo ""
   echo "For each opportunity, provide:"
   echo "- Problem: What pain point? (with real quotes/evidence)"
@@ -86,8 +90,11 @@ trap 'rm -f "$TMP_PROMPT" "$TMP_ANALYST" "$TMP_MSG"' EXIT
 printf '%s' "${ANALYST_BRIEF:-}" > "$TMP_ANALYST"
 
 # Role-specific instructions (after "Using the report above")
+OPPS_LINE="Use the analyst's exact opportunity numbers and names (Opportunity 1: …, Opportunity 2: …, Opportunity 3: …) from the report above. Do not rename or renumber; reference them verbatim so the board has one consistent vocabulary.
+
+"
 declare -A ROLE_INSTRUCTIONS
-ROLE_INSTRUCTIONS[cfo]="Your job:
+ROLE_INSTRUCTIONS[cfo]="${OPPS_LINE}Your job:
 1. Evaluate financial viability of each opportunity above
 2. Recommend budget allocation (how much to invest?)
 3. Calculate expected ROI and timeline
@@ -102,7 +109,7 @@ For each opportunity, state:
 
 Be conservative but opportunistic. Present your analysis clearly."
 
-ROLE_INSTRUCTIONS[cto]="Your job:
+ROLE_INSTRUCTIONS[cto]="${OPPS_LINE}Your job:
 1. Assess technical feasibility of each opportunity above
 2. Estimate build timeline (be realistic + 50% buffer)
 3. Recommend tech stack
@@ -118,7 +125,7 @@ For each opportunity, state:
 
 Prefer boring, proven tech. Present your analysis clearly."
 
-ROLE_INSTRUCTIONS[cmo]="Your job:
+ROLE_INSTRUCTIONS[cmo]="${OPPS_LINE}Your job:
 1. Identify target customers for each opportunity above
 2. Recommend acquisition channels (organic preferred)
 3. Estimate Customer Acquisition Cost (CAC)
@@ -134,7 +141,7 @@ For each opportunity, state:
 
 Focus on low-cost, high-impact channels. Present your analysis clearly."
 
-ROLE_INSTRUCTIONS[coo]="Your job:
+ROLE_INSTRUCTIONS[coo]="${OPPS_LINE}Your job:
 1. Assess resource requirements (people, tools, freelancers) for each opportunity above
 2. Evaluate operational complexity
 3. Identify bottlenecks and dependencies
@@ -150,7 +157,7 @@ For each opportunity, state:
 
 Be pragmatic. Present your analysis clearly."
 
-ROLE_INSTRUCTIONS[risk]="Your job:
+ROLE_INSTRUCTIONS[risk]="${OPPS_LINE}Your job:
 1. Identify risks (market, execution, financial, opportunity cost) for each opportunity above
 2. Set appropriate kill thresholds
 3. Assess downside scenarios
@@ -166,23 +173,20 @@ For each opportunity, state:
 
 Protect the downside. Present your analysis clearly."
 
-ROLE_INSTRUCTIONS[innovation]="Your job:
-1. Add 1-2 unconventional or experimental ideas given the opportunities above
-2. Identify emerging trends (AI, no-code, creator economy, etc.)
-3. Propose high-risk/high-reward alternatives
-4. Challenge conservative thinking
-5. Advocate for experimental budget
+ROLE_INSTRUCTIONS[innovation]="${OPPS_LINE}Your job:
+1. First evaluate the three opportunities from the analyst report above (brief stance on each).
+2. Then add 1-2 unconventional or experimental ideas that extend or complement those opportunities.
+3. Identify emerging trends (AI, no-code, creator economy, etc.) that relate to the report.
+4. Do not propose a separate multi-thousand-dollar initiative unrelated to the analyst's three; keep experimental budget asks scoped and tied to the report.
 
-For your ideas, provide:
-- Opportunity: [what]
-- Why now: [timing/trend]
-- Potential: [upside]
-- Risk: [downside]
-- Budget: \$X
+For your evaluation and ideas, provide:
+- Brief stance on each of the three opportunities from the report
+- 1-2 experimental angles that extend or complement them
+- Opportunity: [what], Why now: [timing], Potential: [upside], Risk: [downside], Budget: \$X (if any)
 
-Think 10x, not 2x. But ground ideas in reality. Present clearly."
+Think 10x, not 2x. But ground ideas in the report. Present clearly."
 
-ROLE_INSTRUCTIONS[pr]="Your job: (1) Read all project docs available (workspace MEMORY, repo docs, and the venture/board context in this prompt) and use them when writing. (2) Use the default browser profile so the existing Moltbook connection is reused; do not log in again unless the site shows a login page. (3) Go to Moltbook and create content (blog post, update, or social post) summarizing today's board discussion and the opportunities from the analyst report above, informed by the docs. Post or save the content on Moltbook. In your response, state briefly what you published and where. You do not vote on ventures."
+ROLE_INSTRUCTIONS[pr]="${OPPS_LINE}Your job: (1) Read all project docs available (workspace MEMORY, repo docs, and the venture/board context in this prompt) and use them when writing. (2) Use the default browser profile so the existing Moltbook connection is reused; do not log in again unless the site shows a login page. (3) Go to Moltbook and create content (blog post, update, or social post) summarizing today's board discussion and the opportunities from the analyst report above, informed by the docs. Post or save the content on Moltbook. In your response, state briefly what you published and where. You do not vote on ventures."
 
 # Display names for prompt header (e.g. cfo -> CFO, risk -> Risk Manager)
 declare -A ROLE_NAMES

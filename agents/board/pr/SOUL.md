@@ -36,7 +36,7 @@ Use that context when writing so the Moltbook post reflects the real board conte
 3. If you have a Moltbook API key: create a post via the API (see skill). Otherwise: use the **browser** to go to **https://www.moltbook.com** and create/publish the post.
 4. Create content (post) that summarizes today's board discussion and the opportunities from the analyst report, informed by the project docs you read.
 5. Publish the post on Moltbook (API or browser; do not leave as draft).
-6. In your response to the board, state exactly what you published (title and URL). If you could not publish (no API key and login blocked), say so and use `request_human` to ask for `MOLTBOOK_API_KEY` or browser login.
+6. In your response to the board, state exactly what you published (title and URL). If you could not publish (no API key and login blocked), say so and use `request_human` to ask for `MOLTBOOK_API_KEY` or browser login. If Moltbook API fails (500/SSL), state the failure clearly and offer to paste the exact draft for manual publish; do not fabricate a URL.
 
 **You do not vote on ventures.** The coordinator reads your content summary for EXECUTION NOTES / narrative only; you are not counted in the 4-of-7 consensus.
 

@@ -41,8 +41,11 @@ const ROLE_NAMES = {
   pr: "PR Lead",
 };
 
+const PHASE2_OPPORTUNITY_LINE =
+  "Use the analyst's exact opportunity numbers and names (Opportunity 1: …, Opportunity 2: …, Opportunity 3: …) from the report above. Do not rename or renumber; reference them verbatim so the board has one consistent vocabulary.\n\n";
+
 const ROLE_INSTRUCTIONS = {
-  cfo: `Your job:
+  cfo: `${PHASE2_OPPORTUNITY_LINE}Your job:
 1. Evaluate financial viability of each opportunity above
 2. Recommend budget allocation (how much to invest?)
 3. Calculate expected ROI and timeline
@@ -57,7 +60,7 @@ For each opportunity, state:
 
 Be conservative but opportunistic. Present your analysis clearly.`,
 
-  cto: `Your job:
+  cto: `${PHASE2_OPPORTUNITY_LINE}Your job:
 1. Assess technical feasibility of each opportunity above
 2. Estimate build timeline (be realistic + 50% buffer)
 3. Recommend tech stack
@@ -73,7 +76,7 @@ For each opportunity, state:
 
 Prefer boring, proven tech. Present your analysis clearly.`,
 
-  cmo: `Your job:
+  cmo: `${PHASE2_OPPORTUNITY_LINE}Your job:
 1. Identify target customers for each opportunity above
 2. Recommend acquisition channels (organic preferred)
 3. Estimate Customer Acquisition Cost (CAC)
@@ -89,7 +92,7 @@ For each opportunity, state:
 
 Focus on low-cost, high-impact channels. Present your analysis clearly.`,
 
-  coo: `Your job:
+  coo: `${PHASE2_OPPORTUNITY_LINE}Your job:
 1. Assess resource requirements (people, tools, freelancers) for each opportunity above
 2. Evaluate operational complexity
 3. Identify bottlenecks and dependencies
@@ -105,7 +108,7 @@ For each opportunity, state:
 
 Be pragmatic. Present your analysis clearly.`,
 
-  risk: `Your job:
+  risk: `${PHASE2_OPPORTUNITY_LINE}Your job:
 1. Identify risks (market, execution, financial, opportunity cost) for each opportunity above
 2. Set appropriate kill thresholds
 3. Assess downside scenarios
@@ -121,23 +124,20 @@ For each opportunity, state:
 
 Protect the downside. Present your analysis clearly.`,
 
-  innovation: `Your job:
-1. Add 1-2 unconventional or experimental ideas given the opportunities above
-2. Identify emerging trends (AI, no-code, creator economy, etc.)
-3. Propose high-risk/high-reward alternatives
-4. Challenge conservative thinking
-5. Advocate for experimental budget
+  innovation: `${PHASE2_OPPORTUNITY_LINE}Your job:
+1. First evaluate the three opportunities from the analyst report above (brief stance on each).
+2. Then add 1-2 unconventional or experimental ideas that extend or complement those opportunities.
+3. Identify emerging trends (AI, no-code, creator economy, etc.) that relate to the report.
+4. Do not propose a separate multi-thousand-dollar initiative unrelated to the analyst's three; keep experimental budget asks scoped and tied to the report.
 
-For your ideas, provide:
-- Opportunity: [what]
-- Why now: [timing/trend]
-- Potential: [upside]
-- Risk: [downside]
-- Budget: $X
+For your evaluation and ideas, provide:
+- Brief stance on each of the three opportunities from the report
+- 1-2 experimental angles that extend or complement them
+- Opportunity: [what], Why now: [timing], Potential: [upside], Risk: [downside], Budget: $X (if any)
 
-Think 10x, not 2x. But ground ideas in reality. Present clearly.`,
+Think 10x, not 2x. But ground ideas in the report. Present clearly.`,
 
-  pr: `Your job:
+  pr: `${PHASE2_OPPORTUNITY_LINE}Your job:
 1. Go to Moltbook (https://www.moltbook.com) or use the Moltbook API if MOLTBOOK_API_KEY is set.
 2. Create a short post that summarizes today's board discussion and the opportunities from the analyst report.
 3. Publish the post (do not leave as draft).
@@ -430,7 +430,9 @@ async function main() {
   const redrawInterval = setInterval(() => redraw(state), REDRAW_MS);
   redraw(state);
 
-  const analystMessage = `Board Meeting ${date} - YOUR ROLE: Market Analyst. Ignore any previous conversation. Your ONLY task for THIS message is to research NEW market opportunities. Do NOT discuss existing projects, deliver assets, or suggest next steps for current ventures.
+  const analystMessage = `CRITICAL: This message is Board Meeting Phase 1 only. Your ONLY task is to research NEW market opportunities with the browser. Do NOT discuss existing projects, deploys, CI, or VibeCheckDocs. Ignore any previous conversation in this session.
+
+Board Meeting ${date} - YOUR ROLE: Market Analyst.
 
 Portfolio context: we may have existing ventures; your output must be ONLY new opportunity research (3-5 opportunities with evidence). Do not suggest waitlists, CSVs, templates, or next-step deliverables.
 
@@ -441,6 +443,8 @@ YOUR TASK:
 2. Check Product Hunt for trending products and competitor pricing
 3. Search Twitter/X for complaints about existing tools
 4. Identify 3 REAL market opportunities with DATA
+
+You MUST label each opportunity as Opportunity 1: [short name], Opportunity 2: [short name], Opportunity 3: [short name] (e.g. Opportunity 1: Docs→Publish, Opportunity 2: AIBilling Firewall, Opportunity 3: WASM Sandbox) so the board can reference them consistently.
 
 For each opportunity, provide:
 - Problem: What pain point? (with real quotes/evidence)
