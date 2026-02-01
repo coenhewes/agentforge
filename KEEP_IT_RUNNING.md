@@ -136,6 +136,14 @@ Omit `ventures.maxActive` for no hard limit (CEO uses judgment). Budget is alway
 
 **When:** If you enabled Telegram or WhatsApp and want to confirm they are up. Channels start with the gateway; if the gateway is healthy and config has `channels.telegram` or `channels.whatsapp`, they are active. See [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md) “Optional: Telegram and WhatsApp” and [docs/start/agentforge-channels.md](docs/start/agentforge-channels.md).
 
+### 9. Payment card (Investment Portal)
+
+**When:** You want the CEO to spend from a single virtual card (e.g. $20 prepaid) without giving raw card details in chat.
+
+1. **Add a card in the portal:** Run `node dist/entry.js portal` (or your portal command). Go to **Settings** (tab 5), then press **c**. Fill in card number, CVV, expiry (MM/YY), cardholder name, and **Card Limit** (the amount on the card, e.g. 20). Submit with Enter; Esc cancels.
+2. **Encryption key:** Card data is encrypted with AES-256-GCM. The key comes from config `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` (base64) or env `AGENTFORGE_CARD_KEY`. If you add a card and the console prints "Generated new encryption key", **persist that key** (e.g. set `cardEncryptionKeyId` in config or `AGENTFORGE_CARD_KEY` in your env) so the same key is used after restart; otherwise decryption will fail.
+3. **Stripe:** The CEO uses the `capital_charge_active_card` tool to charge the stored card. Stripe must be configured (e.g. `STRIPE_SECRET_KEY` in config or env) and enabled. Each charge deducts from the card's balance; the tool returns the **new remaining balance** after each successful charge. The CEO should not charge more than the remaining balance.
+
 ---
 
 ## When to intervene

@@ -5,6 +5,7 @@ import { resolveSessionAgentId } from "./agent-scope.js";
 import { createAgentsListTool } from "./tools/agents-list-tool.js";
 import { createBrowserTool } from "./tools/browser-tool.js";
 import { createCanvasTool } from "./tools/canvas-tool.js";
+import { createCapitalChargeTool } from "./tools/capital-charge-tool.js";
 import type { AnyAgentTool } from "./tools/common.js";
 import { createCronTool } from "./tools/cron-tool.js";
 import { createGatewayTool } from "./tools/gateway-tool.js";
@@ -140,6 +141,10 @@ export function createOpenClawTools(options?: {
     }),
     createHumanRequestTool({
       agentSessionKey: options?.agentSessionKey,
+    }),
+    createCapitalChargeTool({
+      config: options?.config,
+      workspaceDir: options?.workspaceDir,
     }),
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),

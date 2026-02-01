@@ -36,6 +36,7 @@ export class SettingsView extends Container {
 
     const spendLimit = config.humanInterface?.agentforge?.capitalManagement?.allowedSpendUsd ?? 500;
     lines.push(`    Spending Limit:     ${chalk.yellow("$" + spendLimit)}`);
+    lines.push(chalk.gray("    Press 'c' to add a payment card"));
 
     lines.push("");
     lines.push(chalk.gray("  Stripe:"));

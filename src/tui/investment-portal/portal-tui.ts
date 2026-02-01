@@ -3,8 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { Container, ProcessTerminal, Text, TUI } from "@mariozechner/pi-tui";
 
+import { encryptCardData, getOrGenerateEncryptionKey } from "../../agentforge/card-encryption.js";
 import { openVentureStateStore, resolveVentureDbPath } from "../../agentforge/venture-state.js";
 import { theme } from "../theme/theme.js";
+import { CardFormContainer } from "./components/card-form.js";
 import { LogsView } from "./views/logs-view.js";
 import { SettingsView } from "./views/settings-view.js";
 import { VenturesView } from "./views/ventures-view.js";
@@ -16,6 +18,8 @@ interface PortalState {
   activeTab: TabId;
   workspaceDir: string;
   store: ReturnType<typeof openVentureStateStore>;
+  showCardForm: boolean;
+  cardFormRef: CardFormContainer | null;
 }
 
 /**
@@ -34,6 +38,8 @@ export async function runInvestmentPortal(options?: {
     activeTab: "overview",
     workspaceDir: workspace,
     store,
+    showCardForm: false,
+    cardFormRef: null,
   };
 
   const tui = new TUI(new ProcessTerminal());
@@ -70,27 +76,59 @@ export async function runInvestmentPortal(options?: {
 
   const renderContent = () => {
     contentContainer.clear();
+    state.cardFormRef = null;
 
     let view: Container;
 
-    switch (state.activeTab) {
-      case "overview":
-        view = new OverviewContainer(store);
-        break;
-      case "ventures":
-        view = new VenturesView(store);
-        break;
-      case "workers":
-        view = new WorkersView();
-        break;
-      case "logs":
-        view = new LogsView(store);
-        break;
-      case "settings":
-        view = new SettingsView();
-        break;
-      default:
-        view = new Container();
+    if (state.showCardForm && state.activeTab === "settings") {
+      const cardForm = new CardFormContainer(
+        (data) => {
+          getOrGenerateEncryptionKey();
+          const number = data.number.replace(/\s/g, "");
+          const encrypted = encryptCardData({
+            number,
+            cvv: data.cvv,
+            expiry: data.expiry,
+            name: data.name.trim(),
+          });
+          store.addPaymentCard({
+            cardLast4: number.slice(-4),
+            cardName: data.name.trim(),
+            cardLimitUsd: data.limit,
+            cardSpentUsd: 0,
+            isActive: true,
+            encryptedData: JSON.stringify(encrypted),
+          });
+          state.showCardForm = false;
+          renderContent();
+        },
+        () => {
+          state.showCardForm = false;
+          renderContent();
+        },
+      );
+      state.cardFormRef = cardForm;
+      view = cardForm;
+    } else {
+      switch (state.activeTab) {
+        case "overview":
+          view = new OverviewContainer(store);
+          break;
+        case "ventures":
+          view = new VenturesView(store);
+          break;
+        case "workers":
+          view = new WorkersView();
+          break;
+        case "logs":
+          view = new LogsView(store);
+          break;
+        case "settings":
+          view = new SettingsView();
+          break;
+        default:
+          view = new Container();
+      }
     }
 
     contentContainer.addChild(view);
@@ -105,6 +143,20 @@ export async function runInvestmentPortal(options?: {
   // Create an input handler container
   class InputHandler extends Container {
     handleInput(keyData: string): void {
+      if (state.showCardForm && state.cardFormRef) {
+        if (state.cardFormRef.handleInput(keyData)) return;
+      }
+
+      if (
+        state.activeTab === "settings" &&
+        (keyData === "c" || keyData === "C") &&
+        !state.showCardForm
+      ) {
+        state.showCardForm = true;
+        renderContent();
+        return;
+      }
+
       if (keyData === "\t") {
         const tabs: TabId[] = ["overview", "ventures", "workers", "logs", "settings"];
         const currentIndex = tabs.indexOf(state.activeTab);
@@ -120,6 +172,7 @@ export async function runInvestmentPortal(options?: {
         const index = Number.parseInt(keyData, 10) - 1;
         if (index >= 0 && index < tabs.length) {
           state.activeTab = tabs[index];
+          state.showCardForm = false;
           renderContent();
         }
       } else if (keyData === "\x03") {

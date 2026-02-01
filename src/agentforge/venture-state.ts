@@ -62,10 +62,16 @@ export type VenturePaymentCard = {
   cardLast4: string;
   cardName: string;
   cardLimitUsd: number;
+  cardSpentUsd: number;
   isActive: boolean;
   encryptedData: string; // JSON: {number, cvv, expiry}
   createdAt: number;
 };
+
+/** Remaining balance for a payment card (initial balance minus spent). */
+export function getCardRemainingUsd(card: VenturePaymentCard): number {
+  return Math.max(0, card.cardLimitUsd - card.cardSpentUsd);
+}
 
 export type VentureStateStore = {
   getKv: (key: string) => unknown;
@@ -101,6 +107,7 @@ export type VentureStateStore = {
     id: string,
     data: Partial<Omit<VenturePaymentCard, "id" | "createdAt">>,
   ) => void;
+  recordCardSpend: (cardId: string, amountUsd: number) => void;
 };
 
 function ensureSchema(db: DatabaseSync): void {
@@ -184,12 +191,23 @@ function ensureSchema(db: DatabaseSync): void {
       card_last4 TEXT NOT NULL,
       card_name TEXT NOT NULL,
       card_limit_usd REAL NOT NULL,
+      card_spent_usd REAL NOT NULL DEFAULT 0,
       is_active INTEGER NOT NULL DEFAULT 0,
       encrypted_data TEXT NOT NULL,
       created_at INTEGER NOT NULL
     );
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_cards_active ON payment_cards(is_active);`);
+
+  // Migration: add card_spent_usd if table existed without it
+  try {
+    const info = db.prepare("PRAGMA table_info(payment_cards)").all() as Array<{ name: string }>;
+    if (!info.some((c) => c.name === "card_spent_usd")) {
+      db.exec("ALTER TABLE payment_cards ADD COLUMN card_spent_usd REAL NOT NULL DEFAULT 0");
+    }
+  } catch {
+    // Table may not exist yet; ensureSchema already created it with the column
+  }
 }
 
 function now(): number {
@@ -500,6 +518,7 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
 
   const addPaymentCard = (data: Omit<VenturePaymentCard, "id" | "createdAt">): string => {
     const id = crypto.randomUUID();
+    const spent = data.cardSpentUsd ?? 0;
 
     // If this card is being set as active, deactivate all others
     if (data.isActive) {
@@ -507,12 +526,13 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
     }
 
     db.prepare(
-      "INSERT INTO payment_cards(id, card_last4, card_name, card_limit_usd, is_active, encrypted_data, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO payment_cards(id, card_last4, card_name, card_limit_usd, card_spent_usd, is_active, encrypted_data, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
     ).run(
       id,
       data.cardLast4,
       data.cardName,
       data.cardLimitUsd,
+      spent,
       data.isActive ? 1 : 0,
       data.encryptedData,
       now(),
@@ -529,6 +549,7 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
       cardLast4: row.card_last4,
       cardName: row.card_name,
       cardLimitUsd: row.card_limit_usd,
+      cardSpentUsd: row.card_spent_usd ?? 0,
       isActive: Boolean(row.is_active),
       encryptedData: row.encrypted_data,
       createdAt: row.created_at,
@@ -542,6 +563,7 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
       cardLast4: row.card_last4,
       cardName: row.card_name,
       cardLimitUsd: row.card_limit_usd,
+      cardSpentUsd: row.card_spent_usd ?? 0,
       isActive: Boolean(row.is_active),
       encryptedData: row.encrypted_data,
       createdAt: row.created_at,
@@ -572,6 +594,10 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
       fields.push("card_limit_usd=?");
       values.push(data.cardLimitUsd);
     }
+    if (data.cardSpentUsd !== undefined) {
+      fields.push("card_spent_usd=?");
+      values.push(data.cardSpentUsd);
+    }
     if (data.isActive !== undefined) {
       fields.push("is_active=?");
       values.push(data.isActive ? 1 : 0);
@@ -585,6 +611,16 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
       values.push(id);
       db.prepare(`UPDATE payment_cards SET ${fields.join(", ")} WHERE id=?`).run(...values);
     }
+  };
+
+  const recordCardSpend = (cardId: string, amountUsd: number): void => {
+    const row = db
+      .prepare("SELECT card_limit_usd, card_spent_usd FROM payment_cards WHERE id=?")
+      .get(cardId) as { card_limit_usd: number; card_spent_usd?: number } | undefined;
+    if (!row) return;
+    const currentSpent = row.card_spent_usd ?? 0;
+    const newSpent = Math.min(currentSpent + amountUsd, row.card_limit_usd);
+    db.prepare("UPDATE payment_cards SET card_spent_usd=? WHERE id=?").run(newSpent, cardId);
   };
 
   return {
@@ -610,6 +646,7 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
     getActivePaymentCard,
     listPaymentCards,
     updatePaymentCard,
+    recordCardSpend,
   };
 }
 
