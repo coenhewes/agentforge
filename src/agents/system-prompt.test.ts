@@ -215,6 +215,9 @@ describe("buildAgentSystemPrompt", () => {
     });
 
     expect(prompt).toContain("## Skills");
+    expect(prompt).toContain("expand your skillset as required");
+    expect(prompt).toContain("<skills_requiring_setup>");
+    expect(prompt).toContain("Ask the user to install or configure the missing items");
     expect(prompt).toContain(
       "- If exactly one skill clearly applies: read its SKILL.md at <location> with `read`, then follow it.",
     );

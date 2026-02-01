@@ -42,10 +42,12 @@ function buildSkillsSection(params: {
   if (!trimmed) return [];
   return [
     "## Skills (mandatory)",
+    "You may use any of the listed skills when one clearly applies; expand your skillset as required.",
     "Before replying: scan <available_skills> <description> entries.",
     `- If exactly one skill clearly applies: read its SKILL.md at <location> with \`${params.readToolName}\`, then follow it.`,
     "- If multiple could apply: choose the most specific one, then read/follow it.",
     "- If none clearly apply: do not read any SKILL.md.",
+    "If a skill appears under <skills_requiring_setup>, its requirements (bins, env, config) are not yet met. Ask the user to install or configure the missing items so you can use that skill.",
     "Constraints: never read more than one skill up front; only read after selecting.",
     trimmed,
     "",

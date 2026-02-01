@@ -107,9 +107,20 @@ describe("buildWorkspaceSkillsPrompt", () => {
       });
       expect(defaultPrompt).toContain("always-skill");
       expect(defaultPrompt).toContain("config-skill");
-      expect(defaultPrompt).not.toContain("bin-skill");
-      expect(defaultPrompt).not.toContain("anybin-skill");
-      expect(defaultPrompt).not.toContain("env-skill");
+      // Ineligible skills (missing bins/env) appear in skills_requiring_setup so the agent can ask the user to install/configure.
+      expect(defaultPrompt).toContain("<skills_requiring_setup>");
+      expect(defaultPrompt).toContain("bin-skill");
+      expect(defaultPrompt).toContain("anybin-skill");
+      expect(defaultPrompt).toContain("env-skill");
+      expect(defaultPrompt).not.toMatch(
+        /<available_skills>[\s\S]*bin-skill[\s\S]*<\/available_skills>/,
+      );
+      expect(defaultPrompt).not.toMatch(
+        /<available_skills>[\s\S]*anybin-skill[\s\S]*<\/available_skills>/,
+      );
+      expect(defaultPrompt).not.toMatch(
+        /<available_skills>[\s\S]*env-skill[\s\S]*<\/available_skills>/,
+      );
 
       await fs.mkdir(binDir, { recursive: true });
       const fakebinPath = path.join(binDir, "fakebin");
@@ -128,7 +139,10 @@ describe("buildWorkspaceSkillsPrompt", () => {
       expect(gatedPrompt).toContain("anybin-skill");
       expect(gatedPrompt).toContain("env-skill");
       expect(gatedPrompt).toContain("always-skill");
-      expect(gatedPrompt).not.toContain("config-skill");
+      // config-skill is ineligible (browser.enabled false); it appears only in skills_requiring_setup, not in available_skills.
+      expect(gatedPrompt).not.toMatch(
+        /<available_skills>[\s\S]*config-skill[\s\S]*<\/available_skills>/,
+      );
     } finally {
       process.env.PATH = originalPath;
     }

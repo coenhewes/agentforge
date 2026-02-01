@@ -94,7 +94,12 @@ describe("buildWorkspaceSkillsPrompt", () => {
         managedSkillsDir: path.join(workspaceDir, ".managed"),
         config: { skills: { entries: { "nano-banana-pro": { apiKey: "" } } } },
       });
-      expect(missingPrompt).not.toContain("nano-banana-pro");
+      // Ineligible skill appears in skills_requiring_setup so the agent can ask the user to set env; not in available_skills.
+      expect(missingPrompt).not.toMatch(
+        /<available_skills>[\s\S]*nano-banana-pro[\s\S]*<\/available_skills>/,
+      );
+      expect(missingPrompt).toContain("nano-banana-pro");
+      expect(missingPrompt).toContain("<skills_requiring_setup>");
 
       const enabledPrompt = buildWorkspaceSkillsPrompt(workspaceDir, {
         managedSkillsDir: path.join(workspaceDir, ".managed"),

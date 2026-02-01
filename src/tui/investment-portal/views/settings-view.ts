@@ -1,10 +1,11 @@
 import chalk from "chalk";
 import { Container } from "@mariozechner/pi-tui";
 import { loadConfig } from "../../../config/config.js";
+import type { VentureStateStore } from "../../../agentforge/venture-state.js";
 import { theme } from "../../theme/theme.js";
 
 export class SettingsView extends Container {
-  constructor() {
+  constructor(private store?: VentureStateStore) {
     super();
   }
 
@@ -34,9 +35,30 @@ export class SettingsView extends Container {
       `    Budget Enforcement: ${capEnabled ? chalk.green("Enabled") : chalk.red("Disabled")}`,
     );
 
-    const spendLimit = config.humanInterface?.agentforge?.capitalManagement?.allowedSpendUsd ?? 500;
+    // Show spending limit from active card when stored; otherwise from config.
+    const configLimit = config.humanInterface?.agentforge?.capitalManagement?.allowedSpendUsd;
+    const activeCard = this.store?.getActivePaymentCard?.() ?? null;
+    const spendLimit =
+      activeCard != null
+        ? activeCard.cardLimitUsd
+        : configLimit !== undefined && configLimit !== null
+          ? configLimit
+          : 500;
     lines.push(`    Spending Limit:     ${chalk.yellow("$" + spendLimit)}`);
-    lines.push(chalk.gray("    Press 'c' to add a payment card"));
+    if (this.store) {
+      const cards = this.store.listPaymentCards();
+      if (cards.length > 0) {
+        lines.push(
+          chalk.gray(
+            `    Payment cards:      ${cards.length} stored (•••• ${cards.map((c) => c.cardLast4).join(", ")})`,
+          ),
+        );
+      } else {
+        lines.push(chalk.gray("    Press 'c' to add a payment card"));
+      }
+    } else {
+      lines.push(chalk.gray("    Press 'c' to add a payment card"));
+    }
 
     lines.push("");
     lines.push(chalk.gray("  Stripe:"));

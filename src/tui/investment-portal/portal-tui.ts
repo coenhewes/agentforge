@@ -124,7 +124,7 @@ export async function runInvestmentPortal(options?: {
           view = new LogsView(store);
           break;
         case "settings":
-          view = new SettingsView();
+          view = new SettingsView(store);
           break;
         default:
           view = new Container();
@@ -233,6 +233,25 @@ class OverviewContainer extends Container {
     lines.push(
       `    Win rate:            ${winRate >= 50 ? chalk.green(winRate + "%") : chalk.yellow(winRate + "%")}`,
     );
+
+    lines.push("");
+    lines.push(theme.bold("  💳 Payment Cards"));
+    lines.push("");
+    const cards = this.store.listPaymentCards();
+    if (cards.length === 0) {
+      lines.push(chalk.gray("    No payment cards configured"));
+      lines.push(chalk.gray("    Press 5 for Settings, then 'c' to add a card"));
+    } else {
+      for (const card of cards) {
+        const masked = `**** **** **** ${card.cardLast4}`;
+        const status = card.isActive ? chalk.green("[Active]") : chalk.gray("[Inactive]");
+        const remaining = card.cardLimitUsd - (card.cardSpentUsd ?? 0);
+        lines.push(
+          `    ${masked} ${status} — Limit: $${card.cardLimitUsd}, remaining: $${remaining}`,
+        );
+        lines.push(chalk.gray(`    ${card.cardName}`));
+      }
+    }
 
     lines.push("");
     lines.push(theme.bold("  ⚡ Quick Actions"));

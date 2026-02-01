@@ -89,11 +89,26 @@ export function hasBinary(bin: string): boolean {
   return false;
 }
 
-export function shouldIncludeSkill(params: {
+export type SkillRequirementGaps = {
+  eligible: boolean;
+  /** When eligible is false due to requires.*, lists what is missing so the agent can ask the user to install/configure. */
+  missing?: {
+    bins?: string[];
+    anyBins?: string[];
+    env?: string[];
+    config?: string[];
+  };
+};
+
+/**
+ * Returns eligibility and, when ineligible due to requires.*, the list of missing bins/env/config.
+ * Used to expose "skills requiring setup" in the prompt so the agent can ask the user to fulfill requirements.
+ */
+export function getSkillRequirementGaps(params: {
   entry: SkillEntry;
   config?: OpenClawConfig;
   eligibility?: SkillEligibilityContext;
-}): boolean {
+}): SkillRequirementGaps {
   const { entry, config, eligibility } = params;
   const skillKey = resolveSkillKey(entry.skill, entry);
   const skillConfig = resolveSkillConfig(config, skillKey);
@@ -101,25 +116,29 @@ export function shouldIncludeSkill(params: {
   const osList = entry.metadata?.os ?? [];
   const remotePlatforms = eligibility?.remote?.platforms ?? [];
 
-  if (skillConfig?.enabled === false) return false;
-  if (!isBundledSkillAllowed(entry, allowBundled)) return false;
+  if (skillConfig?.enabled === false) return { eligible: false };
+  if (!isBundledSkillAllowed(entry, allowBundled)) return { eligible: false };
   if (
     osList.length > 0 &&
     !osList.includes(resolveRuntimePlatform()) &&
     !remotePlatforms.some((platform) => osList.includes(platform))
   ) {
-    return false;
+    return { eligible: false };
   }
   if (entry.metadata?.always === true) {
-    return true;
+    return { eligible: true };
   }
+
+  const missing: NonNullable<SkillRequirementGaps["missing"]> = {};
 
   const requiredBins = entry.metadata?.requires?.bins ?? [];
   if (requiredBins.length > 0) {
-    for (const bin of requiredBins) {
-      if (hasBinary(bin)) continue;
-      if (eligibility?.remote?.hasBin?.(bin)) continue;
-      return false;
+    const missingBins = requiredBins.filter(
+      (bin) => !hasBinary(bin) && !eligibility?.remote?.hasBin?.(bin),
+    );
+    if (missingBins.length > 0) {
+      missing.bins = missingBins;
+      return { eligible: false, missing };
     }
   }
   const requiredAnyBins = entry.metadata?.requires?.anyBins ?? [];
@@ -127,27 +146,44 @@ export function shouldIncludeSkill(params: {
     const anyFound =
       requiredAnyBins.some((bin) => hasBinary(bin)) ||
       eligibility?.remote?.hasAnyBin?.(requiredAnyBins);
-    if (!anyFound) return false;
+    if (!anyFound) {
+      missing.anyBins = requiredAnyBins;
+      return { eligible: false, missing };
+    }
   }
 
   const requiredEnv = entry.metadata?.requires?.env ?? [];
   if (requiredEnv.length > 0) {
-    for (const envName of requiredEnv) {
-      if (process.env[envName]) continue;
-      if (skillConfig?.env?.[envName]) continue;
-      if (skillConfig?.apiKey && entry.metadata?.primaryEnv === envName) {
-        continue;
-      }
-      return false;
+    const missingEnv = requiredEnv.filter((envName) => {
+      if (process.env[envName]) return false;
+      if (skillConfig?.env?.[envName]) return false;
+      if (skillConfig?.apiKey && entry.metadata?.primaryEnv === envName) return false;
+      return true;
+    });
+    if (missingEnv.length > 0) {
+      missing.env = missingEnv;
+      return { eligible: false, missing };
     }
   }
 
   const requiredConfig = entry.metadata?.requires?.config ?? [];
   if (requiredConfig.length > 0) {
-    for (const configPath of requiredConfig) {
-      if (!isConfigPathTruthy(config, configPath)) return false;
+    const missingConfig = requiredConfig.filter(
+      (configPath) => !isConfigPathTruthy(config, configPath),
+    );
+    if (missingConfig.length > 0) {
+      missing.config = missingConfig;
+      return { eligible: false, missing };
     }
   }
 
-  return true;
+  return { eligible: true };
+}
+
+export function shouldIncludeSkill(params: {
+  entry: SkillEntry;
+  config?: OpenClawConfig;
+  eligibility?: SkillEligibilityContext;
+}): boolean {
+  return getSkillRequirementGaps(params).eligible;
 }

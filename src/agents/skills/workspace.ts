@@ -11,7 +11,11 @@ import type { OpenClawConfig } from "../../config/config.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { CONFIG_DIR, resolveUserPath } from "../../utils.js";
 import { resolveBundledSkillsDir } from "./bundled-dir.js";
-import { shouldIncludeSkill } from "./config.js";
+import {
+  getSkillRequirementGaps,
+  type SkillRequirementGaps,
+  shouldIncludeSkill,
+} from "./config.js";
 import {
   parseFrontmatter,
   resolveOpenClawMetadata,
@@ -211,6 +215,32 @@ export function buildWorkspaceSkillSnapshot(
   };
 }
 
+function formatSkillsRequiringSetupBlock(
+  items: Array<{ entry: SkillEntry; missing: NonNullable<SkillRequirementGaps["missing"]> }>,
+): string {
+  if (items.length === 0) return "";
+  const parts = items.map(({ entry, missing }) => {
+    const name = entry.skill.name;
+    const desc = entry.skill.description?.trim() || name;
+    const missingParts: string[] = [];
+    if (missing.bins?.length) missingParts.push(`bins: ${missing.bins.join(", ")}`);
+    if (missing.anyBins?.length) missingParts.push(`any of bins: ${missing.anyBins.join(", ")}`);
+    if (missing.env?.length) missingParts.push(`env: ${missing.env.join(", ")}`);
+    if (missing.config?.length) missingParts.push(`config: ${missing.config.join(", ")}`);
+    const missingLine = missingParts.length ? missingParts.join("; ") : "";
+    return `<skill>\n  <name>${escapeXmlText(name)}</name>\n  <description>${escapeXmlText(desc)}</description>\n  <missing>${escapeXmlText(missingLine)}</missing>\n</skill>`;
+  });
+  return `<skills_requiring_setup>\n${parts.join("\n")}\n</skills_requiring_setup>`;
+}
+
+function escapeXmlText(raw: string): string {
+  return raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export function buildWorkspaceSkillsPrompt(
   workspaceDir: string,
   opts?: {
@@ -234,9 +264,37 @@ export function buildWorkspaceSkillsPrompt(
     (entry) => entry.invocation?.disableModelInvocation !== true,
   );
   const remoteNote = opts?.eligibility?.remote?.note?.trim();
-  return [remoteNote, formatSkillsForPrompt(promptEntries.map((entry) => entry.skill))]
-    .filter(Boolean)
-    .join("\n");
+  const availableBlock = formatSkillsForPrompt(promptEntries.map((entry) => entry.skill));
+
+  // Expose skills whose requirements aren't met so the agent can ask the user to install/configure and expand its skillset.
+  const skillFilterSet =
+    opts?.skillFilter !== undefined
+      ? new Set(opts.skillFilter.map((s) => String(s).trim()).filter(Boolean))
+      : null;
+  const ineligibleWithGaps = skillEntries
+    .filter((entry) => {
+      const gaps = getSkillRequirementGaps({
+        entry,
+        config: opts?.config,
+        eligibility: opts?.eligibility,
+      });
+      if (gaps.eligible || !gaps.missing || Object.keys(gaps.missing).length === 0) return false;
+      if (skillFilterSet !== null && !skillFilterSet.has(entry.skill.name)) return false;
+      if (entry.invocation?.disableModelInvocation === true) return false;
+      return true;
+    })
+    .map((entry) => {
+      const gaps = getSkillRequirementGaps({
+        entry,
+        config: opts?.config,
+        eligibility: opts?.eligibility,
+      });
+      return { entry, missing: gaps.missing! };
+    });
+  const requiringSetupBlock = formatSkillsRequiringSetupBlock(ineligibleWithGaps);
+
+  const sections = [remoteNote, availableBlock, requiringSetupBlock].filter(Boolean);
+  return sections.join("\n\n");
 }
 
 export function resolveSkillsPromptForRun(params: {
