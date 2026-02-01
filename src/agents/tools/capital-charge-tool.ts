@@ -266,7 +266,7 @@ export function createCapitalChargeTool(opts?: {
 }
 
 /**
- * Tool that returns current venture capital status (ledger + card remaining = total spendable).
+ * Tool that returns current venture capital status. Ledger "Available" is the single source of truth for total spendable (card spend is tracked on the card; don't add card to avoid double count).
  * CEO can call this before planning spend to know how much is available.
  */
 export function createVentureCapitalStatusTool(opts?: {
@@ -277,7 +277,7 @@ export function createVentureCapitalStatusTool(opts?: {
     label: "Venture capital status",
     name: "venture_capital_status",
     description:
-      "Return current spendable capital: ledger Available plus active card remaining. Call this before planning or approving spend to know total available.",
+      "Return current capital: ledger Available (total spendable) and card remaining (for charges via capital_charge_active_card). Call before planning spend.",
     parameters: Type.Object({}),
     execute: async () => {
       const workspaceDir = opts?.workspaceDir?.trim() || resolveWorkspaceDir(opts?.config);
@@ -289,11 +289,10 @@ export function createVentureCapitalStatusTool(opts?: {
         (sum, c) => sum + (c.cardLimitUsd - (c.cardSpentUsd ?? 0)),
         0,
       );
-      const totalSpendable = ledgerAvailable + cardRemaining;
       return jsonResult({
         ledgerAvailable,
         cardRemaining,
-        totalSpendable,
+        totalSpendable: ledgerAvailable,
       });
     },
   };

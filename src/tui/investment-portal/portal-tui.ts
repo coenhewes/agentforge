@@ -221,11 +221,12 @@ class OverviewContainer extends Container {
       (sum, c) => sum + (c.cardLimitUsd - (c.cardSpentUsd ?? 0)),
       0,
     );
-    const totalSpendable = ledgerAvailable + cardRemaining;
+    // Total spendable = ledger only (ledger "Available" is the single source of truth; card is spent via capital_charge and tracked there—don't add card here to avoid double count)
+    const totalSpendable = ledgerAvailable;
     if (cards.length > 0) {
       lines.push("");
       lines.push(
-        `    Total spendable:   ${chalk.cyan("$" + totalSpendable)} ${chalk.gray(`(ledger $${ledgerAvailable} + card $${cardRemaining})`)}`,
+        `    Total spendable:   ${chalk.cyan("$" + totalSpendable)} ${chalk.gray(`(ledger; card $${cardRemaining} remaining below)`)}`,
       );
     }
 
