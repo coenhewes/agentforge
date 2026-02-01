@@ -139,9 +139,9 @@ if [ -f ~/.moltbot/agents/ceo/LEDGER.md ]; then
   done
 fi
 
-# Sync LEDGER.md with SQLite (when sync script exists)
+# Push LEDGER.md → SQLite so the portal shows current capital (CEO writes to LEDGER; portal reads from DB)
 if [ -f "$REPO_ROOT/scripts/sync-ledger.mjs" ]; then
-  node "$REPO_ROOT/scripts/sync-ledger.mjs" > /dev/null 2>&1 || true
+  node "$REPO_ROOT/scripts/sync-ledger.mjs" --to-sqlite > /dev/null 2>&1 || true
 fi
 
 echo "[$(date)] CEO heartbeat completed" >&2

@@ -60,16 +60,16 @@ export async function parseLedgerMarkdown(
     killedInvestments: [],
   };
 
-  // Parse capital status
-  const availableMatch = content.match(/\*\*Current Capital Available:\*\*\s*\$(\d+)/);
-  const earnedMatch = content.match(/\*\*Total Earned \(Lifetime\):\*\*\s*\$(\d+)/);
-  const spentMatch = content.match(/\*\*Total Spent \(Lifetime\):\*\*\s*\$(\d+)/);
-  const netMatch = content.match(/\*\*Net Position:\*\*\s*\$?(-?\d+)/);
+  // Parse capital status (allow integers or decimals e.g. $1 or $1.09)
+  const availableMatch = content.match(/\*\*Current Capital Available:\*\*\s*\$(\d+(?:\.\d+)?)/);
+  const earnedMatch = content.match(/\*\*Total Earned \(Lifetime\):\*\*\s*\$(\d+(?:\.\d+)?)/);
+  const spentMatch = content.match(/\*\*Total Spent \(Lifetime\):\*\*\s*\$(\d+(?:\.\d+)?)/);
+  const netMatch = content.match(/\*\*Net Position:\*\*\s*\$?(-?\d+(?:\.\d+)?)/);
 
-  if (availableMatch) result.capital.available = Number.parseInt(availableMatch[1], 10);
-  if (earnedMatch) result.capital.earnedLifetime = Number.parseInt(earnedMatch[1], 10);
-  if (spentMatch) result.capital.spentLifetime = Number.parseInt(spentMatch[1], 10);
-  if (netMatch) result.capital.netPosition = Number.parseInt(netMatch[1], 10);
+  if (availableMatch) result.capital.available = Number.parseFloat(availableMatch[1]);
+  if (earnedMatch) result.capital.earnedLifetime = Number.parseFloat(earnedMatch[1]);
+  if (spentMatch) result.capital.spentLifetime = Number.parseFloat(spentMatch[1]);
+  if (netMatch) result.capital.netPosition = Number.parseFloat(netMatch[1]);
 
   // Parse active investments table
   const activeSection = content.match(/## Active Investments\s+([\s\S]*?)(?=##|$)/);
