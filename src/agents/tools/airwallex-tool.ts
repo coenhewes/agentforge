@@ -188,137 +188,6 @@ export function createAirwallexGetQuoteTool(): AnyAgentTool {
   };
 }
 
-// --- Create beneficiary ---
-
-const AirwallexCreateBeneficiarySchema = Type.Object({
-  beneficiaryJson: Type.String({
-    description:
-      "JSON string: beneficiary object with type (BANK_ACCOUNT or DIGITAL_WALLET), bank_details or digital_wallet, address, entity_type (PERSONAL or COMPANY), transfer_methods (SWIFT/LOCAL), company_name or first_name/last_name",
-  }),
-});
-
-export function createAirwallexCreateBeneficiaryTool(): AnyAgentTool {
-  return {
-    label: "Airwallex create beneficiary",
-    name: "airwallex_create_beneficiary",
-    description:
-      "Create a saved beneficiary for reuse in transfers. Provide full beneficiary object as beneficiaryJson. Returns beneficiary id for use in airwallex_create_transfer with beneficiary_id.",
-    parameters: AirwallexCreateBeneficiarySchema,
-    execute: async (_toolCallId, args) => {
-      const config = getAirwallexConfig();
-      if (!config) {
-        return jsonResult({
-          status: "error",
-          error: "Airwallex not configured. Set AIRWALLEX_CLIENT_ID and AIRWALLEX_API_KEY.",
-        });
-      }
-      const params = args as Record<string, unknown>;
-      const beneficiaryJson = readStringParam(params, "beneficiaryJson", {
-        required: true,
-      });
-      let beneficiary: unknown;
-      try {
-        beneficiary = JSON.parse(beneficiaryJson!) as unknown;
-      } catch {
-        return jsonResult({
-          status: "error",
-          error: "beneficiaryJson must be valid JSON",
-        });
-      }
-      try {
-        const data = await apiPost(config, "/api/v1/beneficiaries/create", {
-          beneficiary,
-        });
-        return jsonResult({ status: "ok", beneficiary: data });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return jsonResult({ status: "error", error: message });
-      }
-    },
-  };
-}
-
-// --- List beneficiaries ---
-
-const AirwallexListBeneficiariesSchema = Type.Object({
-  pageNum: Type.Optional(Type.Number({ description: "Page number (default 1)" })),
-  pageSize: Type.Optional(Type.Number({ description: "Page size (default 20)" })),
-  nickName: Type.Optional(Type.String({ description: "Filter by beneficiary nick name" })),
-});
-
-export function createAirwallexListBeneficiariesTool(): AnyAgentTool {
-  return {
-    label: "Airwallex list beneficiaries",
-    name: "airwallex_list_beneficiaries",
-    description:
-      "List saved beneficiaries. Optional pagination and nick_name filter. Use beneficiary ids in airwallex_create_transfer.",
-    parameters: AirwallexListBeneficiariesSchema,
-    execute: async (_toolCallId, args) => {
-      const config = getAirwallexConfig();
-      if (!config) {
-        return jsonResult({
-          status: "error",
-          error: "Airwallex not configured. Set AIRWALLEX_CLIENT_ID and AIRWALLEX_API_KEY.",
-        });
-      }
-      const params = args as Record<string, unknown>;
-      const pageNum = readNumberParam(params, "pageNum") ?? 1;
-      const pageSize = readNumberParam(params, "pageSize") ?? 20;
-      const nickName = readStringParam(params, "nickName");
-      const query = new URLSearchParams();
-      query.set("page_num", String(Math.max(1, Math.floor(pageNum))));
-      query.set("page_size", String(Math.min(100, Math.max(1, Math.floor(pageSize)))));
-      if (nickName?.trim()) query.set("nick_name", nickName.trim());
-      const path = `/api/v1/beneficiaries?${query.toString()}`;
-      try {
-        const data = await apiGet(config, path);
-        return jsonResult({ status: "ok", beneficiaries: data });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return jsonResult({ status: "error", error: message });
-      }
-    },
-  };
-}
-
-// --- Get beneficiary ---
-
-const AirwallexGetBeneficiarySchema = Type.Object({
-  beneficiaryId: Type.String({ description: "Beneficiary ID from create or list" }),
-});
-
-export function createAirwallexGetBeneficiaryTool(): AnyAgentTool {
-  return {
-    label: "Airwallex get beneficiary",
-    name: "airwallex_get_beneficiary",
-    description: "Get a saved beneficiary by ID.",
-    parameters: AirwallexGetBeneficiarySchema,
-    execute: async (_toolCallId, args) => {
-      const config = getAirwallexConfig();
-      if (!config) {
-        return jsonResult({
-          status: "error",
-          error: "Airwallex not configured. Set AIRWALLEX_CLIENT_ID and AIRWALLEX_API_KEY.",
-        });
-      }
-      const params = args as Record<string, unknown>;
-      const beneficiaryId = readStringParam(params, "beneficiaryId", {
-        required: true,
-      });
-      try {
-        const data = await apiGet(
-          config,
-          `/api/v1/beneficiaries/${encodeURIComponent(beneficiaryId!)}`,
-        );
-        return jsonResult({ status: "ok", beneficiary: data });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return jsonResult({ status: "error", error: message });
-      }
-    },
-  };
-}
-
 // --- Create transfer ---
 
 const AirwallexCreateTransferSchema = Type.Object({
@@ -333,16 +202,10 @@ const AirwallexCreateTransferSchema = Type.Object({
   }),
   reason: Type.String({ description: "Reason for transfer e.g. travel" }),
   reference: Type.String({ description: "Reference e.g. INV-123456" }),
-  beneficiaryId: Type.Optional(
-    Type.String({
-      description:
-        "Saved beneficiary ID from airwallex_create_beneficiary or airwallex_list_beneficiaries; use instead of beneficiaryJson",
-    }),
-  ),
   beneficiaryJson: Type.Optional(
     Type.String({
       description:
-        "JSON string: beneficiary object when not using beneficiary_id (address, bank_details, entity_type, company_name or first_name/last_name)",
+        "JSON string: beneficiary object with address, bank_details, entity_type, company_name or first_name/last_name",
     }),
   ),
   quoteId: Type.Optional(Type.String({ description: "Quote ID from airwallex_get_quote for FX" })),
@@ -353,7 +216,7 @@ export function createAirwallexCreateTransferTool(): AnyAgentTool {
     label: "Airwallex create transfer",
     name: "airwallex_create_transfer",
     description:
-      "Create an outbound transfer. Provide either beneficiary_id (saved beneficiary from airwallex_create_beneficiary) or beneficiaryJson (inline beneficiary object). Use quote_id from airwallex_get_quote for FX.",
+      "Create an outbound transfer. Provide beneficiary as beneficiaryJson (address, bank_details, entity_type, company_name or first_name/last_name). Use quote_id from airwallex_get_quote for FX.",
     parameters: AirwallexCreateTransferSchema,
     execute: async (_toolCallId, args) => {
       const config = getAirwallexConfig();
@@ -379,9 +242,26 @@ export function createAirwallexCreateTransferTool(): AnyAgentTool {
       });
       const reason = readStringParam(params, "reason", { required: true });
       const reference = readStringParam(params, "reference", { required: true });
-      const beneficiaryId = readStringParam(params, "beneficiaryId");
       const beneficiaryJson = readStringParam(params, "beneficiaryJson");
       const quoteId = readStringParam(params, "quoteId");
+
+      if (!beneficiaryJson?.trim()) {
+        return jsonResult({
+          status: "error",
+          error:
+            "beneficiaryJson required: JSON object with address, bank_details, entity_type, company_name or first_name/last_name",
+        });
+      }
+
+      let beneficiary: unknown;
+      try {
+        beneficiary = JSON.parse(beneficiaryJson) as unknown;
+      } catch {
+        return jsonResult({
+          status: "error",
+          error: "beneficiaryJson must be valid JSON",
+        });
+      }
 
       const body: Record<string, unknown> = {
         request_id: requestId,
@@ -391,27 +271,8 @@ export function createAirwallexCreateTransferTool(): AnyAgentTool {
         transfer_method: transferMethod,
         reason,
         reference,
+        beneficiary,
       };
-      if (beneficiaryId?.trim()) {
-        body.beneficiary_id = beneficiaryId.trim();
-      } else if (beneficiaryJson?.trim()) {
-        let beneficiary: unknown;
-        try {
-          beneficiary = JSON.parse(beneficiaryJson) as unknown;
-        } catch {
-          return jsonResult({
-            status: "error",
-            error: "beneficiaryJson must be valid JSON",
-          });
-        }
-        body.beneficiary = beneficiary;
-      } else {
-        return jsonResult({
-          status: "error",
-          error:
-            "Provide either beneficiary_id (saved beneficiary) or beneficiaryJson (inline beneficiary object).",
-        });
-      }
       if (quoteId) body.quote_id = quoteId;
 
       try {
@@ -453,67 +314,6 @@ export function createAirwallexGetTransferTool(): AnyAgentTool {
       try {
         const data = await apiGet(config, `/api/v1/transfers/${encodeURIComponent(transferId)}`);
         return jsonResult({ status: "ok", transfer: data });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return jsonResult({ status: "error", error: message });
-      }
-    },
-  };
-}
-
-// --- List transfers ---
-
-const AirwallexListTransfersSchema = Type.Object({
-  pageNum: Type.Optional(Type.Number({ description: "Page number (default 1)" })),
-  pageSize: Type.Optional(Type.Number({ description: "Page size (default 20)" })),
-  status: Type.Optional(
-    Type.String({
-      description: "Filter by status e.g. PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED",
-    }),
-  ),
-  fromCreatedAt: Type.Optional(
-    Type.String({
-      description: "Filter transfers created on or after (ISO 8601 date)",
-    }),
-  ),
-  toCreatedAt: Type.Optional(
-    Type.String({
-      description: "Filter transfers created before (ISO 8601 date)",
-    }),
-  ),
-});
-
-export function createAirwallexListTransfersTool(): AnyAgentTool {
-  return {
-    label: "Airwallex list transfers",
-    name: "airwallex_list_transfers",
-    description:
-      "List outbound transfers with optional filters (status, date range, pagination). Use to see recent payouts and status.",
-    parameters: AirwallexListTransfersSchema,
-    execute: async (_toolCallId, args) => {
-      const config = getAirwallexConfig();
-      if (!config) {
-        return jsonResult({
-          status: "error",
-          error: "Airwallex not configured. Set AIRWALLEX_CLIENT_ID and AIRWALLEX_API_KEY.",
-        });
-      }
-      const params = args as Record<string, unknown>;
-      const pageNum = readNumberParam(params, "pageNum") ?? 1;
-      const pageSize = readNumberParam(params, "pageSize") ?? 20;
-      const status = readStringParam(params, "status");
-      const fromCreatedAt = readStringParam(params, "fromCreatedAt");
-      const toCreatedAt = readStringParam(params, "toCreatedAt");
-      const query = new URLSearchParams();
-      query.set("page_num", String(Math.max(1, Math.floor(pageNum))));
-      query.set("page_size", String(Math.min(100, Math.max(1, Math.floor(pageSize)))));
-      if (status?.trim()) query.set("status", status.trim());
-      if (fromCreatedAt?.trim()) query.set("from_created_at", fromCreatedAt.trim());
-      if (toCreatedAt?.trim()) query.set("to_created_at", toCreatedAt.trim());
-      const path = `/api/v1/transfers?${query.toString()}`;
-      try {
-        const data = await apiGet(config, path);
-        return jsonResult({ status: "ok", transfers: data });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return jsonResult({ status: "error", error: message });
@@ -618,99 +418,12 @@ export function createAirwallexCreateCardTool(): AnyAgentTool {
   };
 }
 
-// --- List cards ---
-
-const AirwallexListCardsSchema = Type.Object({
-  pageNum: Type.Optional(Type.Number({ description: "Page number (default 1)" })),
-  pageSize: Type.Optional(Type.Number({ description: "Page size (default 20)" })),
-  status: Type.Optional(
-    Type.String({
-      description: "Filter by card status e.g. ACTIVE, INACTIVE, FROZEN",
-    }),
-  ),
-});
-
-export function createAirwallexListCardsTool(): AnyAgentTool {
-  return {
-    label: "Airwallex list cards",
-    name: "airwallex_list_cards",
-    description:
-      "List issued cards with optional status filter and pagination. Returns card metadata (no PAN/CVV).",
-    parameters: AirwallexListCardsSchema,
-    execute: async (_toolCallId, args) => {
-      const config = getAirwallexConfig();
-      if (!config) {
-        return jsonResult({
-          status: "error",
-          error: "Airwallex not configured. Set AIRWALLEX_CLIENT_ID and AIRWALLEX_API_KEY.",
-        });
-      }
-      const params = args as Record<string, unknown>;
-      const pageNum = readNumberParam(params, "pageNum") ?? 1;
-      const pageSize = readNumberParam(params, "pageSize") ?? 20;
-      const status = readStringParam(params, "status");
-      const query = new URLSearchParams();
-      query.set("page_num", String(Math.max(1, Math.floor(pageNum))));
-      query.set("page_size", String(Math.min(100, Math.max(1, Math.floor(pageSize)))));
-      if (status?.trim()) query.set("status", status.trim());
-      const path = `/api/v1/issuing/cards?${query.toString()}`;
-      try {
-        const data = await apiGet(config, path);
-        return jsonResult({ status: "ok", cards: data });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return jsonResult({ status: "error", error: message });
-      }
-    },
-  };
-}
-
-// --- Get card ---
-
-const AirwallexGetCardSchema = Type.Object({
-  cardId: Type.String({ description: "Card ID from create or list" }),
-});
-
-export function createAirwallexGetCardTool(): AnyAgentTool {
-  return {
-    label: "Airwallex get card",
-    name: "airwallex_get_card",
-    description:
-      "Get a card by ID. Returns metadata, status, limits (no PAN/CVV). Secure card details are via Airwallex PCI endpoint.",
-    parameters: AirwallexGetCardSchema,
-    execute: async (_toolCallId, args) => {
-      const config = getAirwallexConfig();
-      if (!config) {
-        return jsonResult({
-          status: "error",
-          error: "Airwallex not configured. Set AIRWALLEX_CLIENT_ID and AIRWALLEX_API_KEY.",
-        });
-      }
-      const params = args as Record<string, unknown>;
-      const cardId = readStringParam(params, "cardId", { required: true });
-      try {
-        const data = await apiGet(config, `/api/v1/issuing/cards/${encodeURIComponent(cardId!)}`);
-        return jsonResult({ status: "ok", card: data });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return jsonResult({ status: "error", error: message });
-      }
-    },
-  };
-}
-
 export function createAirwallexTools(): AnyAgentTool[] {
   return [
     createAirwallexBalancesTool(),
     createAirwallexGetQuoteTool(),
-    createAirwallexCreateBeneficiaryTool(),
-    createAirwallexListBeneficiariesTool(),
-    createAirwallexGetBeneficiaryTool(),
     createAirwallexCreateTransferTool(),
     createAirwallexGetTransferTool(),
-    createAirwallexListTransfersTool(),
     createAirwallexCreateCardTool(),
-    createAirwallexListCardsTool(),
-    createAirwallexGetCardTool(),
   ];
 }

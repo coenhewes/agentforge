@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createAirwallexBalancesTool, createAirwallexTools } from "./airwallex-tool.js";
 
@@ -30,20 +30,14 @@ describe("airwallex_balances", () => {
 });
 
 describe("createAirwallexTools", () => {
-  it("returns all tools with expected names", () => {
+  it("returns five tools with expected names", () => {
     const tools = createAirwallexTools();
-    expect(tools).toHaveLength(11);
+    expect(tools).toHaveLength(5);
     const names = tools.map((t) => t.name);
     expect(names).toContain("airwallex_balances");
     expect(names).toContain("airwallex_get_quote");
-    expect(names).toContain("airwallex_create_beneficiary");
-    expect(names).toContain("airwallex_list_beneficiaries");
-    expect(names).toContain("airwallex_get_beneficiary");
     expect(names).toContain("airwallex_create_transfer");
     expect(names).toContain("airwallex_get_transfer");
-    expect(names).toContain("airwallex_list_transfers");
     expect(names).toContain("airwallex_create_card");
-    expect(names).toContain("airwallex_list_cards");
-    expect(names).toContain("airwallex_get_card");
   });
 });

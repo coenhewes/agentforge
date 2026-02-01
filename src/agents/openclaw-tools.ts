@@ -10,7 +10,6 @@ import {
   createCapitalChargeTool,
   createVentureCapitalStatusTool,
 } from "./tools/capital-charge-tool.js";
-import { createStripeTools } from "./tools/stripe-tool.js";
 import type { AnyAgentTool } from "./tools/common.js";
 import { createCronTool } from "./tools/cron-tool.js";
 import { createGatewayTool } from "./tools/gateway-tool.js";
@@ -156,7 +155,6 @@ export function createOpenClawTools(options?: {
       workspaceDir: options?.workspaceDir,
     }),
     ...createAirwallexTools(),
-    ...createStripeTools(),
     ...(webSearchTool ? [webSearchTool] : []),
     ...(webFetchTool ? [webFetchTool] : []),
     ...(imageTool ? [imageTool] : []),

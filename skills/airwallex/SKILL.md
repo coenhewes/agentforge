@@ -6,7 +6,7 @@ metadata: {"moltbot":{"emoji":"🏦","requires":{"env":["AIRWALLEX_CLIENT_ID","A
 
 # Airwallex Skill
 
-Use Airwallex as the venture bank account: Stripe withdraws into it; agents use virtual cards for spend. This skill covers balances, FX quotes, beneficiaries, transfers (create/get/list), and cards (create/list/get) via tools.
+Use Airwallex as the venture bank account: Stripe withdraws into it; agents use virtual cards for spend. This skill covers balances, FX quotes, transfers, and card creation via tools.
 
 ## When to Use
 
@@ -29,15 +29,9 @@ Tools return clear errors if credentials are missing or invalid.
 |------|---------|
 | `airwallex_balances` | Current balances (available, pending, total) per currency. |
 | `airwallex_get_quote` | FX quote for a currency pair; returns quote_id and rate validity window. |
-| `airwallex_create_beneficiary` | Create a saved beneficiary (full object as JSON); returns beneficiary id. |
-| `airwallex_list_beneficiaries` | List saved beneficiaries; optional pagination and nick_name filter. |
-| `airwallex_get_beneficiary` | Get a saved beneficiary by id. |
-| `airwallex_create_transfer` | Create outbound transfer; provide beneficiary_id or beneficiaryJson, amount, currency, reference, optional quote_id. |
+| `airwallex_create_transfer` | Create outbound transfer; provide beneficiary, amount, currency, reference, optional quote_id. |
 | `airwallex_get_transfer` | Get transfer status and details by transfer id. |
-| `airwallex_list_transfers` | List transfers with optional status, date range, pagination. |
 | `airwallex_create_card` | Create virtual card; optional per-transaction limits and merchant category. |
-| `airwallex_list_cards` | List issued cards; optional status and pagination. |
-| `airwallex_get_card` | Get card metadata by id (no PAN/CVV). |
 
 ## Workflows
 
@@ -48,9 +42,8 @@ Tools return clear errors if credentials are missing or invalid.
 
 ### Send money (same currency)
 
-1. Optionally create a beneficiary with `airwallex_create_beneficiary` and use its id, or pass inline `beneficiaryJson`.
-2. Call `airwallex_create_transfer` with beneficiary_id or beneficiaryJson, amount, currency, reference, `request_id` (UUID).
-3. Call `airwallex_get_transfer` with the returned transfer id to confirm status; or use `airwallex_list_transfers` to see recent payouts.
+1. Call `airwallex_create_transfer` with beneficiary, amount, currency, reference, `request_id` (UUID).
+2. Call `airwallex_get_transfer` with the returned transfer id to confirm status.
 
 ### Send money (FX)
 

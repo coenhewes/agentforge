@@ -57,18 +57,9 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     "venture_capital_status",
     "airwallex_balances",
     "airwallex_get_quote",
-    "airwallex_create_beneficiary",
-    "airwallex_list_beneficiaries",
-    "airwallex_get_beneficiary",
     "airwallex_create_transfer",
     "airwallex_get_transfer",
-    "airwallex_list_transfers",
     "airwallex_create_card",
-    "airwallex_list_cards",
-    "airwallex_get_card",
-    "stripe_balance",
-    "stripe_list_payouts",
-    "stripe_create_payout",
   ],
 };
 

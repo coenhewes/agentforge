@@ -39,8 +39,8 @@ Run this once after deployment or after a VPS upgrade, before unattended operati
 | Layer | Role | Agent access |
 |-------|------|--------------|
 | **Stripe** | Collects payments (checkout, subscriptions, one-time). | **Full API access** for actuals: revenue, customers, payouts, balance. Use Stripe API/skill/CLI for the true picture of what’s been collected. |
-| **Withdrawals** | Stripe pays out into the Airwallex account. | **One-time setup:** Set Airwallex as the default payout destination in Stripe (Dashboard or API) using the Airwallex bank details. After that, agents can trigger a payout on demand via `stripe_create_payout` or rely on Stripe’s schedule. |
-| **Airwallex** | Holds the balance; issues cards; executes transfers and payments. | **Full API access** via tools: balances, FX quotes, transfers (create/get/list), beneficiaries (create/list/get), cards (create/list/get), plus `airwallex_create_card`. |
+| **Withdrawals** | Stripe is configured to pay out into the Airwallex account. | Configure payout destination in Stripe Dashboard (or API) to the Airwallex bank details. |
+| **Airwallex** | Holds the balance; issues cards; executes transfers and payments. | **Full API access** via tools: `airwallex_balances`, `airwallex_get_quote`, `airwallex_create_transfer`, `airwallex_get_transfer`, `airwallex_create_card`. Create cards, use cards, transfer, pay—everything the Airwallex API allows. |
 
 **Result:** Stripe = revenue/actuals. Airwallex = bank balance, cards, transfers, pay. Agents use both for the full financial reality of the company.
 
