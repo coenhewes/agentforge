@@ -7,6 +7,7 @@
  *   node scripts/sync-ledger.mjs --to-sqlite
  *   node scripts/sync-ledger.mjs --to-markdown
  *   node scripts/sync-ledger.mjs --to-sqlite --ledger /path/to/LEDGER.md
+ *   node scripts/sync-ledger.mjs --dry-run   (print ledger path, parsed capital, and first 60 lines if nothing parsed)
  */
 
 import os from "node:os";
@@ -17,11 +18,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 
 function parseArgs(argv) {
-  const out = { mode: "bidirectional", ledgerPath: null, workspaceDir: null };
+  const out = { mode: "bidirectional", ledgerPath: null, workspaceDir: null, dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--to-sqlite") out.mode = "to-sqlite";
     if (a === "--to-markdown") out.mode = "to-markdown";
+    if (a === "--dry-run" || a === "-n") out.dryRun = true;
     if (a === "--ledger" && argv[i + 1]) out.ledgerPath = argv[i + 1];
     if (a === "--workspace" && argv[i + 1]) out.workspaceDir = argv[i + 1];
   }
@@ -44,14 +46,47 @@ async function resolveLedgerPath(ledgerArg) {
 }
 
 // Import via dynamic import since we're in ESM
-const { bidirectionalSync, syncLedgerToState, syncStateToLedger } = await import(
-  path.join(REPO_ROOT, "dist", "agentforge", "ledger-sync.js")
-);
+const {
+  bidirectionalSync,
+  syncLedgerToState,
+  syncStateToLedger,
+  parseLedgerMarkdown,
+} = await import(path.join(REPO_ROOT, "dist", "agentforge", "ledger-sync.js"));
 
 async function main() {
-  const { mode, ledgerPath, workspaceDir } = parseArgs(process.argv.slice(2));
+  const { mode, ledgerPath, workspaceDir, dryRun } = parseArgs(process.argv.slice(2));
   const ledger = await resolveLedgerPath(ledgerPath ?? undefined);
   const workspace = workspaceDir ?? undefined;
+
+  if (dryRun) {
+    const fs = await import("node:fs/promises");
+    console.log("[sync-ledger] LEDGER path:", ledger);
+    try {
+      const parsed = await parseLedgerMarkdown(ledger);
+      console.log(
+        "[sync-ledger] Parsed capital: available=%s earned_lifetime=%s spent_lifetime=%s",
+        parsed.capital.available,
+        parsed.capital.earnedLifetime,
+        parsed.capital.spentLifetime,
+      );
+      if (
+        parsed.capital.available === 0 &&
+        parsed.capital.earnedLifetime === 0 &&
+        parsed.capital.spentLifetime === 0
+      ) {
+        const raw = await fs.readFile(ledger, "utf-8");
+        const lines = raw.split("\n").slice(0, 60);
+        console.log("[sync-ledger] No capital parsed. First 60 lines of LEDGER.md:");
+        console.log("---");
+        console.log(lines.join("\n"));
+        console.log("---");
+      }
+    } catch (err) {
+      console.error("[sync-ledger] ERROR:", err.message);
+      process.exit(1);
+    }
+    return;
+  }
 
   try {
     if (mode === "to-sqlite") {
