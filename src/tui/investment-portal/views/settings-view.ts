@@ -53,6 +53,7 @@ export class SettingsView extends Container {
             `    Payment cards:      ${cards.length} stored (•••• ${cards.map((c) => c.cardLast4).join(", ")})`,
           ),
         );
+        lines.push(chalk.gray("    Press 'c' to add, 'r' to remove the active card"));
       } else {
         lines.push(chalk.gray("    Press 'c' to add a payment card"));
       }

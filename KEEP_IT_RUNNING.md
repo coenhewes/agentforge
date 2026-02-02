@@ -350,8 +350,8 @@ The CEO can see `cardRemaining: $15` but `capital_charge_active_card` fails with
 
 **Fix:** Remove the card and re-add it so a new key is generated and **saved to config automatically**:
 
-1. Run `node dist/entry.js portal --workspace ~/.moltbot/agents/ceo` → **Settings** (5) → remove the existing card.
-2. Add the card again. The portal will generate a key and write it to your config; the gateway will then see it after restart.
+1. Run `node dist/entry.js portal --workspace ~/.moltbot/agents/ceo` → **Settings** (5) → press **r** to remove the active card.
+2. Press **c** to add the card again. The portal will generate a key and write it to your config; the gateway will then see it after restart.
 3. Restart the gateway: `sudo systemctl restart agentforge-gateway`.
 
 If you still have the original key (from an old portal run that printed it), you can instead add `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` (base64) to the config file the gateway loads, then restart the gateway.

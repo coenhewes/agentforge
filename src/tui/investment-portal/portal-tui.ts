@@ -157,6 +157,20 @@ export async function runInvestmentPortal(options?: {
         return;
       }
 
+      if (
+        state.activeTab === "settings" &&
+        (keyData === "r" || keyData === "R") &&
+        !state.showCardForm
+      ) {
+        const cards = store.listPaymentCards();
+        const toRemove = store.getActivePaymentCard() ?? cards[0] ?? null;
+        if (toRemove) {
+          store.removePaymentCard(toRemove.id);
+          renderContent();
+        }
+        return;
+      }
+
       if (keyData === "\t") {
         const tabs: TabId[] = ["overview", "ventures", "workers", "logs", "settings"];
         const currentIndex = tabs.indexOf(state.activeTab);

@@ -107,6 +107,7 @@ export type VentureStateStore = {
     id: string,
     data: Partial<Omit<VenturePaymentCard, "id" | "createdAt">>,
   ) => void;
+  removePaymentCard: (id: string) => void;
   recordCardSpend: (cardId: string, amountUsd: number) => void;
 };
 
@@ -613,6 +614,23 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
     }
   };
 
+  const removePaymentCard = (id: string): void => {
+    const row = db.prepare("SELECT is_active FROM payment_cards WHERE id=?").get(id) as
+      | { is_active: number }
+      | undefined;
+    if (!row) return;
+    const wasActive = row.is_active === 1;
+    db.prepare("DELETE FROM payment_cards WHERE id=?").run(id);
+    if (wasActive) {
+      const remaining = db
+        .prepare("SELECT id FROM payment_cards ORDER BY created_at DESC LIMIT 1")
+        .get() as { id: string } | undefined;
+      if (remaining) {
+        db.prepare("UPDATE payment_cards SET is_active=1 WHERE id=?").run(remaining.id);
+      }
+    }
+  };
+
   const recordCardSpend = (cardId: string, amountUsd: number): void => {
     const row = db
       .prepare("SELECT card_limit_usd, card_spent_usd FROM payment_cards WHERE id=?")
@@ -646,6 +664,7 @@ export function openVentureStateStore(params: { dbPath: string }): VentureStateS
     getActivePaymentCard,
     listPaymentCards,
     updatePaymentCard,
+    removePaymentCard,
     recordCardSpend,
   };
 }
