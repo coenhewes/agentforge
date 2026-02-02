@@ -15,9 +15,52 @@ Short guide for what to do **after** deployment so the system keeps running. For
 
 ---
 
+## After a reboot
+
+**You do not need to run any commands manually.** If the gateway and cron are set up correctly, they start automatically:
+
+| Component | Starts on boot? | Ensure enabled (one-time) |
+|-----------|-----------------|---------------------------|
+| **Gateway** | Yes, if the systemd service is enabled | `sudo systemctl enable agentforge-gateway` |
+| **Cron** | Yes (cron daemon is enabled by default on Ubuntu/Debian) | `sudo systemctl enable cron` (usually already enabled) |
+
+After a reboot, verify:
+
+```bash
+sudo systemctl status agentforge-gateway   # expect active (running)
+sudo systemctl status cron                 # expect active (running)
+crontab -l                                 # expect your AgentForge lines
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/   # expect 200 or 302
+```
+
+If the gateway is not running, start it: `sudo systemctl start agentforge-gateway`. Cron jobs will run at their next scheduled time (9am daily, every 30 min for heartbeat).
+
+---
+
+## After upgrading to the new cron template
+
+If you previously had the **old** cron (separate 9am board meeting + 10am CEO implement), replace it with the **new** template (single 9am daily pipeline + heartbeat with `OPENCLAW_STATE_DIR`).
+
+**If AgentForge is the only thing in your crontab** — replace the whole crontab in one go:
+
+```bash
+cat ~/.moltbot/agentforge-cron.txt | crontab -
+```
+
+**If you have other cron jobs** — back up, remove old AgentForge lines manually, then install the new template:
+
+1. `crontab -l > ~/cron.backup`
+2. `crontab -e` → delete every line that mentions AgentForge, `board-meeting.sh`, `ceo-implement.sh`, `ceo-heartbeat.sh`, `daily-board-ceo.sh`, `weekly-reflection.sh`, or `monthly-learning.sh`. Save and exit.
+3. `(crontab -l 2>/dev/null; cat ~/.moltbot/agentforge-cron.txt) | crontab -`
+
+**Verify:** `crontab -l` should show one 9am line for `daily-board-ceo.sh`, one `*/30 * * * *` for `ceo-heartbeat.sh`, and weekly/monthly if present. Each line should include `OPENCLAW_STATE_DIR=...`.
+
+---
+
 ## Contents
 
 - [What runs by itself](#what-runs-by-itself)
+- [After a reboot](#after-a-reboot)
 - [Pre-production checklist](#pre-production-checklist-before-leaving-it-for-a-week)
 - [What to check (and how often)](#what-to-check-and-how-often)
 - [When to intervene](#when-to-intervene)
@@ -39,6 +82,42 @@ Short guide for what to do **after** deployment so the system keeps running. For
 **Requirements:** Cron must be running and the gateway must be up. One gateway restart or one missed cron run is usually fine; the next run catches up.
 
 **Autonomous loop (CEO heartbeat):** After `init:agentforge`, the CEO is the default agent with `heartbeat: { every: "30m" }`. The **gateway** runs the CEO every 30 minutes. The cron entry that runs `ceo-heartbeat.sh` every 30 min is **optional** (backup). If you rely only on the gateway heartbeat, ensure the gateway runs 24/7 (e.g. systemd) and that cron env (see [Cron environment](#21-cron-environment-state-dir-and-config-path)) is only needed for the daily pipeline.
+
+---
+
+## VPS validation tests (before leaving autonomous)
+
+Run these on the VPS in order to confirm the system will run autonomously. Use the same state dir your cron uses: set `OPENCLAW_STATE_DIR=$HOME/.moltbot` (or `$HOME/.openclaw` if that’s where your config lives) for steps 4–8 so the scripts find config and agents. If init wrote "Updated ~/.openclaw/moltbot.json", config is under ~/.openclaw — set OPENCLAW_STATE_DIR=$HOME/.openclaw for steps 4–8 and change crontab to use .openclaw so cron finds config.
+
+| # | Test | Command | Expect |
+|---|------|---------|--------|
+| 1 | Gateway up | `sudo systemctl status agentforge-gateway` | `active (running)` |
+| 2 | Gateway HTTP | `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18789/` | `200` or `302` |
+| 3 | Crontab | `crontab -l` | One 9am `daily-board-ceo.sh`, one `*/30` `ceo-heartbeat.sh`, each with `OPENCLAW_STATE_DIR` |
+| 4 | Dry-run (cron + config + gateway) | `cd ~/agentforge && ./scripts/agentforge-dry-run.sh` | All `[OK]`, 0 warnings |
+| 5 | CEO probe (one short run) | `cd ~/agentforge && ./scripts/agentforge-dry-run.sh --probe` | `[OK] CEO probe completed` (can take ~30–60s) |
+| 6 | Model fallbacks | `jq '.agents.defaults.model' ~/.moltbot/moltbot.json` (or your config path) | Object with `fallbacks` array (e.g. `["openai/gpt-4o-mini"]`) |
+| 7 | Full daily pipeline (optional) | `cd ~/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/daily-board-ceo.sh` | Board → coordinator → CEO implement complete; check `/tmp/agentforge-daily.log` |
+| 8 | One heartbeat (optional) | `cd ~/agentforge && OPENCLAW_STATE_DIR=$HOME/.moltbot ./scripts/ceo-heartbeat.sh` | Completes; `tail -n 5 /tmp/agentforge-heartbeat.log` shows completion line |
+
+If tests 1–5 pass and 6 shows fallbacks, the system is in good shape for autonomous operation. Tests 7–8 are optional but confirm the full pipeline and heartbeat under cron env.
+
+**Quick test without waiting for 9am** — Run the same commands cron would run, with the same redirects, so output goes to the log files and you can verify immediately. Replace `$STATE_DIR` with your state dir (e.g. `$HOME/.openclaw` or `$HOME/.moltbot`):
+
+```bash
+cd ~/agentforge
+STATE_DIR=$HOME/.openclaw   # or $HOME/.moltbot
+
+# Run daily pipeline (same as 9am cron); output → /tmp/agentforge-daily.log
+OPENCLAW_STATE_DIR=$STATE_DIR ./scripts/daily-board-ceo.sh >> /tmp/agentforge-daily.log 2>&1
+tail -80 /tmp/agentforge-daily.log
+
+# Run one heartbeat (same as */30 cron); output → /tmp/agentforge-heartbeat.log
+OPENCLAW_STATE_DIR=$STATE_DIR ./scripts/ceo-heartbeat.sh >> /tmp/agentforge-heartbeat.log 2>&1
+tail -30 /tmp/agentforge-heartbeat.log
+```
+
+If both complete and the logs show the expected completion lines, cron will behave the same at 9am and every 30 min.
 
 ---
 
@@ -166,9 +245,14 @@ If enabled, channels start with the gateway. See [VPS_DEPLOYMENT_GUIDE.md](VPS_D
 
 ### 9. Payment card (Investment Portal) (optional)
 
-1. Run `node dist/entry.js portal` → **Settings** (tab 5) → **c** → fill card number, CVV, expiry, cardholder name, **Card Limit**.
-2. **Encryption key:** From config `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` or env `AGENTFORGE_CARD_KEY`. If the console prints "Generated new encryption key", **persist that key** or decryption will fail after restart.
-3. **Stripe:** CEO uses `capital_charge_active_card`; Stripe must be configured. Each charge deducts from the card balance; the tool returns the new remaining balance.
+1. **Use the CEO workspace** so the CEO and portal share the same venture DB. Run:
+   ```bash
+   node dist/entry.js portal --workspace ~/.moltbot/agents/ceo
+   ```
+   (Without `--workspace`, the portal uses `~/.moltbot/ventures/default`; the CEO uses `~/.moltbot/agents/ceo` — so the CEO would see $0 and no card if you only add them in the default workspace.)
+2. In the portal: **Settings** (tab 5) → **c** → fill card number, CVV, expiry, cardholder name, **Card Limit**.
+3. **Encryption key:** When you add a card, the portal **saves the encryption key to your config automatically** so the gateway (and CEO) can decrypt it. No manual copy/paste. Ensure the portal and gateway use the **same config file** (same state dir). If the CEO still gets "Failed to decrypt card data", see [Failed to decrypt card data when CEO charges](#failed-to-decrypt-card-data-when-ceo-charges).
+4. **Stripe:** CEO uses `capital_charge_active_card`; Stripe must be configured. Each charge deducts from the card balance; the tool returns the new remaining balance.
 
 ---
 
@@ -238,6 +322,39 @@ For reliable browser control on VPS:
 5. **Verify:** `curl -s http://127.0.0.1:18791/ | jq '{running, pid, chosenBrowser}'` and `node dist/entry.js browser --browser-profile clawd status`.
 
 Troubleshooting: “Failed to start Chrome CDP” → use Google Chrome .deb, not snap. Timeouts → increase `requestTimeoutMs`. “Chrome extension relay… no tab” → use `defaultProfile: "clawd"`. Check logs: `sudo journalctl -u agentforge-gateway -n 100 --no-pager | grep -i browser`.
+
+#### CEO sees $0 capital / no card while Portal shows funds
+
+The **portal** and the **CEO** read from different venture databases unless you align the workspace:
+
+| Context | Default workspace | Venture DB path |
+|--------|--------------------|-----------------|
+| **Portal** (no `--workspace`) | `~/.moltbot/ventures/default` | `…/ops/venture.sqlite` |
+| **CEO** (init:agentforge) | `~/.moltbot/agents/ceo` | `…/ops/venture.sqlite` |
+
+If you added a card and capital by running `node dist/entry.js portal` with no `--workspace`, they were written to `~/.moltbot/ventures/default`. The CEO reads from `~/.moltbot/agents/ceo`, so it reports $0 and no card.
+
+**Fix:** Run the portal with the CEO workspace so both use the same DB:
+
+```bash
+node dist/entry.js portal --workspace ~/.moltbot/agents/ceo
+```
+
+Then add (or re-add) the card and capital in that workspace. The CEO’s `venture_capital_status` and `capital_charge_active_card` will then see the same data the portal shows.
+
+#### Failed to decrypt card data when CEO charges
+
+The CEO can see `cardRemaining: $15` but `capital_charge_active_card` fails with: *"Failed to decrypt card data. Check encryption key (AGENTFORGE_CARD_KEY or config)."*
+
+**Cause:** The card was encrypted with a key that the **gateway** process doesn’t see (e.g. you added the card before the key was auto-saved, or portal and gateway use different config paths).
+
+**Fix:** Remove the card and re-add it so a new key is generated and **saved to config automatically**:
+
+1. Run `node dist/entry.js portal --workspace ~/.moltbot/agents/ceo` → **Settings** (5) → remove the existing card.
+2. Add the card again. The portal will generate a key and write it to your config; the gateway will then see it after restart.
+3. Restart the gateway: `sudo systemctl restart agentforge-gateway`.
+
+If you still have the original key (from an old portal run that printed it), you can instead add `humanInterface.agentforge.capitalManagement.cardEncryptionKeyId` (base64) to the config file the gateway loads, then restart the gateway.
 
 #### 429 RESOURCE_EXHAUSTED but fallback not trying OpenAI
 
@@ -375,3 +492,4 @@ Store the tarball somewhere safe (not only on the same VPS).
 4. **Update when you pull** — Rebuild and restart the gateway.
 
 For full deployment, troubleshooting, and testing, see [VPS_DEPLOYMENT_GUIDE.md](VPS_DEPLOYMENT_GUIDE.md).
+

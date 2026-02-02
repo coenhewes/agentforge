@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
-import { loadConfig } from "../config/config.js";
+
+import type { OpenClawConfig } from "../config/types.js";
+import { loadConfig, writeConfigFile } from "../config/config.js";
 
 /**
  * AES-256-GCM encryption for payment card data
@@ -52,18 +54,34 @@ export function getOrGenerateEncryptionKey(): Buffer {
     }
   }
 
-  // Generate new key
+  // Generate new key and persist to config so portal and gateway (and cron) share it
   const key = crypto.randomBytes(KEY_LENGTH);
+  const keyBase64 = key.toString("base64");
+  process.env.AGENTFORGE_CARD_KEY = keyBase64;
 
-  // Store in environment for this session
-  // Note: User should persist this to config or env file
-  process.env.AGENTFORGE_CARD_KEY = key.toString("base64");
-
-  console.warn(
-    "[card-encryption] Generated new encryption key. " +
-      "Add to config: humanInterface.agentforge.capitalManagement.cardEncryptionKeyId = " +
-      key.toString("base64"),
-  );
+  if (typeof process.env.VITEST === "undefined") {
+    (async () => {
+      try {
+        const cfg = loadConfig();
+        const next: OpenClawConfig = {
+          ...cfg,
+          humanInterface: {
+            ...cfg.humanInterface,
+            agentforge: {
+              ...cfg.humanInterface?.agentforge,
+              capitalManagement: {
+                ...cfg.humanInterface?.agentforge?.capitalManagement,
+                cardEncryptionKeyId: keyBase64,
+              },
+            },
+          },
+        };
+        await writeConfigFile(next);
+      } catch (err) {
+        console.error("[card-encryption] Failed to persist key to config:", err);
+      }
+    })();
+  }
 
   return key;
 }
